@@ -1,0 +1,130 @@
+:root {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #172033;
+  background: #eef3f8;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; }
+a { color: inherit; text-decoration: none; }
+button, input, textarea, select { font: inherit; }
+
+.app-shell { min-height: 100vh; }
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 28px; background: rgba(255,255,255,.88); backdrop-filter: blur(12px);
+  border-bottom: 1px solid #dce5ef;
+}
+.brand { font-weight: 800; font-size: 20px; }
+nav { display: flex; gap: 14px; align-items: center; }
+main { width: min(1440px, calc(100% - 32px)); margin: 24px auto; }
+
+.card {
+  background: #fff; border: 1px solid #dce5ef; border-radius: 24px;
+  padding: 24px; box-shadow: 0 16px 40px rgba(31, 53, 79, .08);
+}
+.narrow { width: min(480px, 100%); margin: 48px auto; }
+.subcard { background: #f7f9fc; border: 1px solid #e2eaf2; border-radius: 18px; padding: 16px; }
+
+h1, h2, h3, p { margin-top: 0; }
+h1 { font-size: clamp(28px, 4vw, 46px); margin-bottom: 10px; }
+h2 { font-size: 22px; margin-bottom: 10px; }
+h3 { margin-bottom: 8px; }
+.muted { color: #687587; }
+.lead { color: #445166; font-size: 18px; line-height: 1.6; }
+.eyebrow { color: #3563e9; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; font-size: 12px; }
+.empty { color: #8090a4; background: #f7f9fc; border-radius: 14px; padding: 12px; }
+.error { color: #b42318; background: #fff0ef; padding: 10px 12px; border-radius: 12px; }
+
+.button, .link-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 0; border-radius: 14px; padding: 12px 16px; cursor: pointer;
+  background: #3563e9; color: white; font-weight: 700;
+}
+.button:hover, .link-button:hover { filter: brightness(.96); }
+.button.secondary { background: #e9eef7; color: #172033; }
+.button.small { padding: 8px 12px; border-radius: 10px; font-size: 14px; }
+.link-button { background: transparent; color: #172033; padding: 0; }
+.full { width: 100%; margin-top: 12px; }
+.actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.actions.right { justify-content: flex-end; }
+
+.form { display: grid; gap: 14px; }
+.form label { display: grid; gap: 6px; color: #46556b; font-weight: 650; }
+.form input, .form textarea, .form select, .chat-form input {
+  width: 100%; border: 1px solid #d4deea; border-radius: 12px; padding: 11px 12px;
+  background: #fff; color: #172033; outline: none;
+}
+.form input:focus, .form textarea:focus, .form select:focus, .chat-form input:focus { border-color: #3563e9; }
+.form.compact { gap: 10px; }
+.two-cols, .split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+.hero { display: grid; grid-template-columns: 1.25fr .75fr; gap: 24px; align-items: center; padding: 42px; }
+.hero-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.hero-panel span { background: #f7f9fc; border-radius: 18px; padding: 24px; font-weight: 800; }
+
+.page-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+.section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.trip-list { display: grid; gap: 12px; }
+.trip-card { display: flex; justify-content: space-between; gap: 14px; padding: 16px; border: 1px solid #e2eaf2; border-radius: 18px; background: #f9fbfe; }
+.trip-card:hover { border-color: #3563e9; }
+.trip-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; color: #667085; }
+code { background: #eef3f8; border-radius: 8px; padding: 3px 7px; }
+
+.trip-page { display: grid; gap: 18px; }
+.trip-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.status-stack { display: flex; align-items: flex-end; flex-direction: column; gap: 8px; }
+.badge { border-radius: 999px; padding: 8px 12px; font-size: 13px; font-weight: 800; }
+.badge.ok, .dot.ok { background: #dcfae6; color: #067647; }
+.badge.warn, .dot.warn { background: #fff4cc; color: #8a6100; }
+.invite { font-size: 18px; font-weight: 900; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 18px; align-items: start; }
+.side-panels { display: grid; gap: 18px; }
+.panel { padding: 18px; }
+
+.map-card { min-height: 720px; }
+.map { height: 640px; border-radius: 18px; overflow: hidden; border: 1px solid #dce5ef; }
+.popup p { margin: 6px 0; }
+.popup-actions { display: flex; gap: 6px; margin-top: 8px; }
+.popup-actions button { border: 0; border-radius: 8px; padding: 5px 8px; cursor: pointer; }
+
+.modal-backdrop { position: fixed; inset: 0; background: rgba(17, 24, 39, .45); z-index: 999; display: grid; place-items: center; padding: 20px; }
+.modal { width: min(460px, 100%); }
+
+.members { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.members li { display: flex; align-items: center; gap: 10px; }
+.members img, .avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+.avatar { display: grid; place-items: center; background: #e9eef7; font-weight: 900; }
+.members small { display: block; color: #667085; }
+
+.checkbox-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 14px; }
+.balances, .expense-list { margin-top: 14px; }
+.positive { color: #067647; }
+.negative { color: #b42318; }
+.expense-item { display: grid; gap: 3px; border-top: 1px solid #edf2f7; padding: 10px 0; }
+.settlement { margin-bottom: 6px; }
+
+.chat-panel { min-height: 360px; display: flex; flex-direction: column; }
+.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-flex; }
+.messages { flex: 1; overflow: auto; max-height: 280px; display: grid; gap: 10px; padding-right: 4px; }
+.message { border-radius: 14px; padding: 10px 12px; background: #f7f9fc; }
+.message p { margin: 4px 0; }
+.message small { color: #7a8797; }
+.chat-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 12px; }
+
+@media (max-width: 1100px) {
+  .workspace, .hero, .split { grid-template-columns: 1fr; }
+  .side-panels { grid-template-columns: 1fr; }
+  .map-card { min-height: auto; }
+  .map { height: 520px; }
+}
+
+@media (max-width: 640px) {
+  main { width: min(100% - 18px, 1440px); margin: 12px auto; }
+  .topbar, .trip-header, .trip-card, .section-head { flex-direction: column; align-items: flex-start; }
+  .two-cols, .checkbox-list, .hero-panel { grid-template-columns: 1fr; }
+  .map { height: 420px; }
+}
