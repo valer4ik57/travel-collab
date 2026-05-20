@@ -13,13 +13,15 @@
             <label>Начало<input v-model="newTrip.start_date" type="date" /></label>
             <label>Конец<input v-model="newTrip.end_date" type="date" /></label>
           </div>
-          <button class="button">Создать</button>
+          <p v-if="createError" class="error">{{ createError }}</p>
+          <button class="button" :disabled="creating">Создать</button>
         </form>
 
         <form @submit.prevent="joinTrip" class="form subcard">
           <h2>Вступить по коду</h2>
           <label>Invite-код<input v-model="inviteCode" required placeholder="ABCD1234" /></label>
-          <button class="button secondary">Вступить</button>
+          <p v-if="joinError" class="error">{{ joinError }}</p>
+          <button class="button secondary" :disabled="joining">Вступить</button>
         </form>
       </div>
     </div>
@@ -57,7 +59,11 @@ import type { Trip } from '../types'
 
 const trips = ref<Trip[]>([])
 const loading = ref(false)
+const creating = ref(false)
+const joining = ref(false)
 const error = ref('')
+const createError = ref('')
+const joinError = ref('')
 const inviteCode = ref('')
 const router = useRouter()
 const newTrip = reactive({ name: '', description: '', start_date: '', end_date: '' })
@@ -76,19 +82,36 @@ async function loadTrips() {
 }
 
 async function createTrip() {
-  const payload = {
-    name: newTrip.name,
-    description: newTrip.description || null,
-    start_date: newTrip.start_date || null,
-    end_date: newTrip.end_date || null
+  creating.value = true
+  createError.value = ''
+  try {
+    const payload = {
+      name: newTrip.name,
+      description: newTrip.description || null,
+      start_date: newTrip.start_date || null,
+      end_date: newTrip.end_date || null
+    }
+    const { data } = await http.post<Trip>('/trips', payload)
+    router.push(`/trips/${data.id}`)
+  } catch (e: any) {
+    createError.value = e.response?.data?.error || 'Не удалось создать поездку'
+  } finally {
+    creating.value = false
   }
-  const { data } = await http.post<Trip>('/trips', payload)
-  router.push(`/trips/${data.id}`)
 }
 
 async function joinTrip() {
-  const { data } = await http.post('/trips/join', { invite_code: inviteCode.value })
-  router.push(`/trips/${data.trip.id}`)
+  joining.value = true
+  joinError.value = ''
+  try {
+    const { data } = await http.post('/trips/join', { invite_code: inviteCode.value })
+    router.push(`/trips/${data.trip.id}`)
+  } catch (e: any) {
+    if (e.response?.status === 404) joinError.value = 'Код приглашения не найден'
+    else joinError.value = e.response?.data?.error || 'Не удалось вступить в поездку'
+  } finally {
+    joining.value = false
+  }
 }
 
 onMounted(loadTrips)

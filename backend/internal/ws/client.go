@@ -99,6 +99,10 @@ func (c *Client) handleMessage(raw []byte) {
 	}
 	switch msg.Type {
 	case "SEND_MESSAGE":
+		role, err := c.Store.GetTripMemberRole(context.Background(), c.TripID, c.UserID)
+		if err != nil || (role != "owner" && role != "editor") {
+			return
+		}
 		var payload sendMessagePayload
 		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 			return

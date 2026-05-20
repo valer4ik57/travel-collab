@@ -19,10 +19,10 @@ type Config struct {
 }
 
 func Load() (Config, error) {
-	_ = godotenv.Load(".env", "../.env", "../../.env")
+	_ = godotenv.Overload(".env", "../.env", "../../.env")
 
 	cfg := Config{
-		DatabaseURL:        getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/travel_collab?sslmode=disable"),
+		DatabaseURL:        getEnv("DATABASE_URL", "postgres://postgres:postgres@127.0.0.1:5433/travel_collab?sslmode=disable"),
 		JWTSecret:          getEnv("JWT_SECRET", "dev_secret_change_me"),
 		Port:               getEnv("PORT", "8080"),
 		FrontendURL:        strings.TrimRight(getEnv("FRONTEND_URL", "http://localhost:5173"), "/"),

@@ -35,7 +35,7 @@ func (s *Server) handleListLocations(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCreateLocation(w http.ResponseWriter, r *http.Request) {
 	tripID := chi.URLParam(r, "trip_id")
 	userID, _ := appmiddleware.UserIDFromContext(r.Context())
-	if !s.ensureTripMember(w, r, tripID, userID) {
+	if _, ok := s.ensureTripRole(w, r, tripID, userID, "owner", "editor"); !ok {
 		return
 	}
 	var req locationRequest
@@ -59,7 +59,7 @@ func (s *Server) handleUpdateLocation(w http.ResponseWriter, r *http.Request) {
 	tripID := chi.URLParam(r, "trip_id")
 	locationID := chi.URLParam(r, "location_id")
 	userID, _ := appmiddleware.UserIDFromContext(r.Context())
-	if !s.ensureTripMember(w, r, tripID, userID) {
+	if _, ok := s.ensureTripRole(w, r, tripID, userID, "owner", "editor"); !ok {
 		return
 	}
 	var req locationRequest
@@ -83,7 +83,7 @@ func (s *Server) handleDeleteLocation(w http.ResponseWriter, r *http.Request) {
 	tripID := chi.URLParam(r, "trip_id")
 	locationID := chi.URLParam(r, "location_id")
 	userID, _ := appmiddleware.UserIDFromContext(r.Context())
-	if !s.ensureTripMember(w, r, tripID, userID) {
+	if _, ok := s.ensureTripRole(w, r, tripID, userID, "owner", "editor"); !ok {
 		return
 	}
 	if err := s.store.DeleteLocation(r.Context(), tripID, locationID); err != nil {

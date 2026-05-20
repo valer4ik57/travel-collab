@@ -48,3 +48,14 @@ func (s *Store) FindOrCreateGitHubUser(ctx context.Context, githubID, displayNam
 	`, githubID, email, displayName, avatarURL).Scan(&user.ID, &user.Email, &user.DisplayName, &user.AvatarURL, &user.GitHubID, &user.CreatedAt)
 	return user, err
 }
+
+func (s *Store) UpdateUserProfile(ctx context.Context, id string, displayName string, avatarURL *string) (models.User, error) {
+	var user models.User
+	err := s.DB.QueryRow(ctx, `
+		UPDATE users
+		SET display_name = $2, avatar_url = $3
+		WHERE id = $1
+		RETURNING id, email, display_name, avatar_url, github_id, created_at
+	`, id, displayName, avatarURL).Scan(&user.ID, &user.Email, &user.DisplayName, &user.AvatarURL, &user.GitHubID, &user.CreatedAt)
+	return user, err
+}

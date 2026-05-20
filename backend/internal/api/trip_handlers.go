@@ -23,6 +23,10 @@ type joinTripRequest struct {
 	InviteCode string `json:"invite_code"`
 }
 
+type updateMemberRoleRequest struct {
+	Role string `json:"role"`
+}
+
 func (s *Server) handleListTrips(w http.ResponseWriter, r *http.Request) {
 	userID, _ := appmiddleware.UserIDFromContext(r.Context())
 	trips, err := s.store.ListTripsForUser(r.Context(), userID)
@@ -115,19 +119,133 @@ func (s *Server) handleJoinTrip(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"trip": trip, "member": member, "already_member": !created})
 }
 
+func (s *Server) handleLeaveTrip(w http.ResponseWriter, r *http.Request) {
+	tripID := chi.URLParam(r, "trip_id")
+	userID, _ := appmiddleware.UserIDFromContext(r.Context())
+	role, ok := s.ensureTripRole(w, r, tripID, userID, "owner", "editor", "viewer")
+	if !ok {
+		return
+	}
+	if role == "owner" {
+		owners, err := s.store.CountOwners(r.Context(), tripID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to check owners")
+			return
+		}
+		if owners <= 1 {
+			writeError(w, http.StatusBadRequest, "owner cannot leave while they are the only owner")
+			return
+		}
+	}
+	if err := s.store.RemoveTripMember(r.Context(), tripID, userID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to leave trip")
+		return
+	}
+	s.hub.Broadcast(tripID, models.WSEvent{Type: "MEMBER_LEFT", Payload: map[string]string{"user_id": userID}})
+	writeJSON(w, http.StatusOK, map[string]string{"status": "left"})
+}
+
+func (s *Server) handleUpdateMemberRole(w http.ResponseWriter, r *http.Request) {
+	tripID := chi.URLParam(r, "trip_id")
+	targetUserID := chi.URLParam(r, "user_id")
+	userID, _ := appmiddleware.UserIDFromContext(r.Context())
+	if _, ok := s.ensureTripRole(w, r, tripID, userID, "owner"); !ok {
+		return
+	}
+	var req updateMemberRoleRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	role := strings.ToLower(strings.TrimSpace(req.Role))
+	if role != "owner" && role != "editor" && role != "viewer" {
+		writeError(w, http.StatusBadRequest, "role must be owner, editor or viewer")
+		return
+	}
+	oldRole, err := s.store.GetTripMemberRole(r.Context(), tripID, targetUserID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "member not found")
+		return
+	}
+	if oldRole == "owner" && role != "owner" {
+		owners, err := s.store.CountOwners(r.Context(), tripID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to check owners")
+			return
+		}
+		if owners <= 1 {
+			writeError(w, http.StatusBadRequest, "cannot remove the last owner role")
+			return
+		}
+	}
+	member, err := s.store.UpdateTripMemberRole(r.Context(), tripID, targetUserID, role)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update member role")
+		return
+	}
+	s.hub.Broadcast(tripID, models.WSEvent{Type: "MEMBER_UPDATED", Payload: member})
+	writeJSON(w, http.StatusOK, member)
+}
+
+func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
+	tripID := chi.URLParam(r, "trip_id")
+	targetUserID := chi.URLParam(r, "user_id")
+	userID, _ := appmiddleware.UserIDFromContext(r.Context())
+	if _, ok := s.ensureTripRole(w, r, tripID, userID, "owner"); !ok {
+		return
+	}
+	if userID == targetUserID {
+		writeError(w, http.StatusBadRequest, "use leave trip for yourself")
+		return
+	}
+	role, err := s.store.GetTripMemberRole(r.Context(), tripID, targetUserID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "member not found")
+		return
+	}
+	if role == "owner" {
+		owners, err := s.store.CountOwners(r.Context(), tripID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to check owners")
+			return
+		}
+		if owners <= 1 {
+			writeError(w, http.StatusBadRequest, "cannot remove the last owner")
+			return
+		}
+	}
+	if err := s.store.RemoveTripMember(r.Context(), tripID, targetUserID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to remove member")
+		return
+	}
+	s.hub.Broadcast(tripID, models.WSEvent{Type: "MEMBER_REMOVED", Payload: map[string]string{"user_id": targetUserID}})
+	writeJSON(w, http.StatusOK, map[string]string{"status": "removed"})
+}
+
 func (s *Server) ensureTripMember(w http.ResponseWriter, r *http.Request, tripID, userID string) bool {
+	_, ok := s.ensureTripRole(w, r, tripID, userID, "owner", "editor", "viewer")
+	return ok
+}
+
+func (s *Server) ensureTripRole(w http.ResponseWriter, r *http.Request, tripID, userID string, allowed ...string) (string, bool) {
 	if tripID == "" || userID == "" {
 		writeError(w, http.StatusBadRequest, "trip_id is required")
-		return false
+		return "", false
 	}
-	ok, err := s.store.IsTripMember(r.Context(), tripID, userID)
+	role, err := s.store.GetTripMemberRole(r.Context(), tripID, userID)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			writeError(w, http.StatusForbidden, "you are not a member of this trip")
+			return "", false
+		}
 		writeError(w, http.StatusInternalServerError, "failed to check trip access")
-		return false
+		return "", false
 	}
-	if !ok {
-		writeError(w, http.StatusForbidden, "you are not a member of this trip")
-		return false
+	for _, item := range allowed {
+		if role == item {
+			return role, true
+		}
 	}
-	return true
+	writeError(w, http.StatusForbidden, "your role does not allow this action")
+	return role, false
 }

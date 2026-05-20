@@ -128,3 +128,23 @@ code { background: #eef3f8; border-radius: 8px; padding: 3px 7px; }
   .two-cols, .checkbox-list, .hero-panel { grid-template-columns: 1fr; }
   .map { height: 420px; }
 }
+
+.user-chip {
+  display: inline-flex; align-items: center; gap: 9px; border: 1px solid #dce5ef;
+  border-radius: 999px; padding: 6px 10px; background: #f7f9fc; color: #172033; cursor: pointer;
+}
+.user-chip small { display: block; color: #667085; font-size: 12px; text-align: left; }
+.avatar.small { width: 30px; height: 30px; font-size: 13px; }
+.success { color: #067647; background: #ecfdf3; padding: 10px 12px; border-radius: 12px; }
+.hint { color: #667085; font-size: 13px; margin: 6px 0; }
+.button.tiny { padding: 6px 8px; border-radius: 8px; font-size: 12px; }
+.button.danger { background: #fee4e2; color: #b42318; }
+.member-row { align-items: flex-start !important; }
+.member-main { min-width: 0; flex: 1; }
+.member-actions { display: grid; gap: 6px; justify-items: end; }
+.member-actions select { border: 1px solid #d4deea; border-radius: 9px; padding: 6px; background: white; }
+.checkbox-list.better { grid-template-columns: 1fr; margin-top: 8px; }
+.check-card { display: flex !important; grid-template-columns: auto 1fr; align-items: center; gap: 8px !important; padding: 9px 10px; border: 1px solid #e2eaf2; border-radius: 12px; background: #f9fbfe; }
+.check-card input { width: auto !important; }
+.settlement-card { margin-top: 14px; }
+button:disabled, input:disabled { opacity: .6; cursor: not-allowed; }

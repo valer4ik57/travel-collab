@@ -124,6 +124,14 @@ func (s *Store) IsTripMember(ctx context.Context, tripID, userID string) (bool, 
 	return exists, err
 }
 
+func (s *Store) GetTripMemberRole(ctx context.Context, tripID, userID string) (string, error) {
+	var role string
+	err := s.DB.QueryRow(ctx, `
+		SELECT role FROM trip_members WHERE trip_id = $1 AND user_id = $2
+	`, tripID, userID).Scan(&role)
+	return role, err
+}
+
 func (s *Store) ListTripMembers(ctx context.Context, tripID string) ([]models.TripMember, error) {
 	rows, err := s.DB.Query(ctx, `
 		SELECT tm.trip_id, tm.user_id, tm.role, tm.joined_at, u.display_name, u.email, u.avatar_url
@@ -200,4 +208,44 @@ func (s *Store) EnsureAllUsersAreTripMembers(ctx context.Context, tripID string,
 		}
 	}
 	return nil
+}
+
+func (s *Store) UpdateTripMemberRole(ctx context.Context, tripID, targetUserID, role string) (models.TripMember, error) {
+	var member models.TripMember
+	err := s.DB.QueryRow(ctx, `
+		UPDATE trip_members
+		SET role = $3
+		WHERE trip_id = $1 AND user_id = $2
+		RETURNING trip_id, user_id, role, joined_at
+	`, tripID, targetUserID, role).Scan(&member.TripID, &member.UserID, &member.Role, &member.JoinedAt)
+	if err != nil {
+		return member, err
+	}
+	user, err := s.GetUserByID(ctx, targetUserID)
+	if err != nil {
+		return member, err
+	}
+	member.DisplayName = user.DisplayName
+	member.Email = user.Email
+	member.AvatarURL = user.AvatarURL
+	return member, nil
+}
+
+func (s *Store) RemoveTripMember(ctx context.Context, tripID, targetUserID string) error {
+	ct, err := s.DB.Exec(ctx, `DELETE FROM trip_members WHERE trip_id = $1 AND user_id = $2`, tripID, targetUserID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+func (s *Store) CountOwners(ctx context.Context, tripID string) (int, error) {
+	var count int
+	err := s.DB.QueryRow(ctx, `
+		SELECT COUNT(*) FROM trip_members WHERE trip_id = $1 AND role = 'owner'
+	`, tripID).Scan(&count)
+	return count, err
 }

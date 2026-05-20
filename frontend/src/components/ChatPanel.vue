@@ -12,10 +12,11 @@
         <small>{{ new Date(message.sent_at).toLocaleString() }}</small>
       </article>
     </div>
-    <form class="chat-form" @submit.prevent="submit">
+    <form v-if="canWrite" class="chat-form" @submit.prevent="submit">
       <input v-model="text" :disabled="!connected" placeholder="Написать сообщение..." />
       <button class="button small" :disabled="!connected || !text.trim()">Отправить</button>
     </form>
+    <p v-else class="empty">У вас роль viewer, чат доступен только для чтения.</p>
   </section>
 </template>
 
@@ -23,7 +24,7 @@
 import { ref } from 'vue'
 import type { Message } from '../types'
 
-defineProps<{ messages: Message[]; connected: boolean }>()
+defineProps<{ messages: Message[]; connected: boolean; canWrite: boolean }>()
 const emit = defineEmits<{ send: [text: string] }>()
 const text = ref('')
 

@@ -26,6 +26,11 @@ type loginRequest struct {
 	Password string `json:"password"`
 }
 
+type updateMeRequest struct {
+	DisplayName string  `json:"display_name"`
+	AvatarURL   *string `json:"avatar_url"`
+}
+
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
 	if err := decodeJSON(r, &req); err != nil {
@@ -85,6 +90,38 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	user, err := s.store.GetUserByID(r.Context(), userID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "user not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, user)
+}
+
+func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
+	userID, ok := appmiddleware.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	var req updateMeRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	displayName := strings.TrimSpace(req.DisplayName)
+	if displayName == "" || len([]rune(displayName)) > 100 {
+		writeError(w, http.StatusBadRequest, "display_name is required and must be shorter than 100 characters")
+		return
+	}
+	if req.AvatarURL != nil {
+		trimmed := strings.TrimSpace(*req.AvatarURL)
+		if trimmed == "" {
+			req.AvatarURL = nil
+		} else {
+			req.AvatarURL = &trimmed
+		}
+	}
+	user, err := s.store.UpdateUserProfile(r.Context(), userID, displayName, req.AvatarURL)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update profile")
 		return
 	}
 	writeJSON(w, http.StatusOK, user)

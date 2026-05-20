@@ -35,7 +35,7 @@ func (s *Server) handleListExpenses(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCreateExpense(w http.ResponseWriter, r *http.Request) {
 	tripID := chi.URLParam(r, "trip_id")
 	userID, _ := appmiddleware.UserIDFromContext(r.Context())
-	if !s.ensureTripMember(w, r, tripID, userID) {
+	if _, ok := s.ensureTripRole(w, r, tripID, userID, "owner", "editor"); !ok {
 		return
 	}
 	var req createExpenseRequest

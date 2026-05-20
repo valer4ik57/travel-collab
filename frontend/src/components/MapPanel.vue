@@ -3,7 +3,7 @@
     <div class="section-head">
       <div>
         <h2>Карта маршрута</h2>
-        <p class="muted">Клик по карте добавляет новую точку интереса.</p>
+        <p class="muted">{{ canEdit ? 'Клик по карте добавляет новую точку интереса.' : 'У вас роль viewer, карта доступна только для просмотра.' }}</p>
       </div>
     </div>
     <div ref="mapEl" class="map"></div>
@@ -44,7 +44,7 @@ L.Icon.Default.mergeOptions({
 import { http } from '../api/http'
 import type { LocationPoint } from '../types'
 
-const props = defineProps<{ tripId: string; locations: LocationPoint[] }>()
+const props = defineProps<{ tripId: string; locations: LocationPoint[]; canEdit: boolean }>()
 const emit = defineEmits<{
   created: [location: LocationPoint]
   updated: [location: LocationPoint]
@@ -64,6 +64,7 @@ onMounted(() => {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map)
   map.on('click', (event: L.LeafletMouseEvent) => {
+    if (!props.canEdit) return
     editingId.value = null
     draft.value = { name: '', description: '', category: 'other', lat: event.latlng.lat, lng: event.latlng.lng }
   })
@@ -106,20 +107,24 @@ function renderMarkers() {
 }
 
 function popupHtml(location: LocationPoint) {
+  const actions = props.canEdit
+    ? `<div class="popup-actions">
+        <button data-action="edit" data-id="${location.id}">Изменить</button>
+        <button data-action="delete" data-id="${location.id}">Удалить</button>
+      </div>`
+    : '<p class="hint">Только просмотр</p>'
   return `
     <div class="popup">
       <strong>${escapeHtml(location.name)}</strong>
       <p>${escapeHtml(location.description || 'Без описания')}</p>
       <small>${escapeHtml(location.category)}</small>
-      <div class="popup-actions">
-        <button data-action="edit" data-id="${location.id}">Изменить</button>
-        <button data-action="delete" data-id="${location.id}">Удалить</button>
-      </div>
+      ${actions}
     </div>
   `
 }
 
 function attachPopupHandlers(location: LocationPoint) {
+  if (!props.canEdit) return
   setTimeout(() => {
     document.querySelector(`button[data-action="edit"][data-id="${location.id}"]`)?.addEventListener('click', () => {
       editingId.value = location.id
