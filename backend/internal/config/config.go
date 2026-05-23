@@ -13,6 +13,7 @@ type Config struct {
 	JWTSecret          string
 	Port               string
 	FrontendURL        string
+	FrontendURLs       []string
 	GitHubClientID     string
 	GitHubClientSecret string
 	GitHubCallbackURL  string
@@ -26,6 +27,7 @@ func Load() (Config, error) {
 		JWTSecret:          getEnv("JWT_SECRET", "dev_secret_change_me"),
 		Port:               getEnv("PORT", "8080"),
 		FrontendURL:        strings.TrimRight(getEnv("FRONTEND_URL", "http://localhost:5173"), "/"),
+		FrontendURLs:       parseCSV(getEnv("FRONTEND_URLS", "http://localhost:5173,capacitor://localhost,http://localhost,http://127.0.0.1:5173")),
 		GitHubClientID:     os.Getenv("GITHUB_CLIENT_ID"),
 		GitHubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
 		GitHubCallbackURL:  getEnv("GITHUB_CALLBACK_URL", "http://localhost:8080/api/v1/auth/github/callback"),
@@ -38,6 +40,18 @@ func Load() (Config, error) {
 		fmt.Println("warning: JWT_SECRET uses a development value; change it before real deployment")
 	}
 	return cfg, nil
+}
+
+func parseCSV(value string) []string {
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		cleaned := strings.TrimRight(strings.TrimSpace(part), "/")
+		if cleaned != "" {
+			result = append(result, cleaned)
+		}
+	}
+	return result
 }
 
 func getEnv(key, fallback string) string {

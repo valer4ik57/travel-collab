@@ -1,6 +1,19 @@
 import { ref } from 'vue'
 import type { WSEvent } from '../types'
 
+function buildWebSocketURL(tripId: string, token: string) {
+  const configuredBase = (import.meta.env.VITE_WS_BASE_URL || '').trim().replace(/\/$/, '')
+  const encodedToken = encodeURIComponent(token)
+
+  if (configuredBase) {
+    return `${configuredBase}/${tripId}?token=${encodedToken}`
+  }
+
+  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
+  const host = window.location.host
+  return `${protocol}://${host}/api/v1/ws/${tripId}?token=${encodedToken}`
+}
+
 export function useTripSocket(tripId: string, onEvent: (event: WSEvent) => void) {
   const connected = ref(false)
   const reconnecting = ref(false)
@@ -11,9 +24,7 @@ export function useTripSocket(tripId: string, onEvent: (event: WSEvent) => void)
   function connect() {
     const token = localStorage.getItem('token')
     if (!token) return
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    const host = window.location.host
-    socket = new WebSocket(`${protocol}://${host}/api/v1/ws/${tripId}?token=${encodeURIComponent(token)}`)
+    socket = new WebSocket(buildWebSocketURL(tripId, token))
 
     socket.onopen = () => {
       connected.value = true

@@ -1519,3 +1519,118 @@ main, .trip-page, .card, .panel, .subcard, .map-card, .map-layout, .map-wrap, .r
     grid-template-columns: 1fr;
   }
 }
+
+
+/* v0.5 Capacitor preparation: strict mobile chat viewport */
+@media (max-width: 760px) {
+  body.trip-mobile-shell main:has(.active-tab-chat) {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .mobile-app-layout.active-tab-chat {
+    height: 100dvh;
+    min-height: 100dvh;
+    padding: 72px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .mobile-app-layout.active-tab-chat .inline-notice {
+    flex: 0 0 auto;
+    margin: 0;
+  }
+
+  .mobile-app-layout.active-tab-chat .chat-page {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    overflow: hidden;
+  }
+
+  .mobile-app-layout.active-tab-chat .chat-page .messages,
+  .mobile-app-layout.active-tab-chat .chat-page .chat-messages {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .mobile-app-layout.active-tab-chat .chat-page .chat-form {
+    position: relative;
+    bottom: auto;
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 8px 0 0;
+    border-top: 1px solid #e2eaf2;
+  }
+}
+
+/* v0.5 final mobile runtime polish */
+:root {
+  --tc-safe-top: env(safe-area-inset-top, 0px);
+  --tc-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+body.capacitor-native-shell,
+body.capacitor-native-shell.trip-mobile-shell {
+  background: #eef3f8;
+}
+
+@media (max-width: 760px) {
+  body.capacitor-native-shell .mobile-trip-appbar {
+    top: 0;
+    min-height: calc(62px + var(--tc-safe-top));
+    height: calc(62px + var(--tc-safe-top));
+    padding-top: calc(8px + var(--tc-safe-top));
+  }
+
+  body.capacitor-native-shell .mobile-app-layout {
+    padding-top: calc(72px + var(--tc-safe-top));
+    padding-bottom: calc(14px + var(--tc-safe-bottom));
+  }
+
+  body.capacitor-native-shell .mobile-side-menu {
+    padding-top: calc(14px + var(--tc-safe-top));
+    padding-bottom: calc(14px + var(--tc-safe-bottom));
+  }
+
+  body.capacitor-native-shell .mobile-app-layout.active-tab-chat {
+    padding-top: calc(72px + var(--tc-safe-top));
+    padding-bottom: calc(10px + var(--tc-safe-bottom));
+  }
+
+  .expense-submit-row {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e6edf5;
+  }
+
+  .expense-submit-row .hint {
+    margin: 0;
+    text-align: center;
+  }
+
+  .expense-submit-row .button {
+    min-height: 46px;
+    font-size: 15px;
+  }
+}
+
+.expense-submit-row {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e6edf5;
+}
+
+.expense-submit-row .hint {
+  margin: 0;
+  text-align: center;
+}

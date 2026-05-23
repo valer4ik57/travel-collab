@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Travel-Collab</string>
+    <string name="title_activity_main">Travel-Collab</string>
+    <string name="package_name">ru.travelcollab.app</string>
+    <string name="custom_url_scheme">ru.travelcollab.app</string>
+</resources>

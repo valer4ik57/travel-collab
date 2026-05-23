@@ -39,13 +39,16 @@ func (s *Server) routes() http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
-	r.Use(appmiddleware.CORS(s.cfg.FrontendURL))
+	r.Use(appmiddleware.CORS(s.cfg.FrontendURL, s.cfg.FrontendURLs))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "service": "travel-collab-backend"})
+		})
 		r.Post("/auth/register", s.handleRegister)
 		r.Post("/auth/login", s.handleLogin)
 		r.Get("/auth/github", s.handleGitHubStart)

@@ -1,122 +1,108 @@
 # Travel-Collab
 
-Travel-Collab — дипломный веб-сервис для совместного планирования путешествий.
-Проект содержит backend на Go, frontend на Vue 3, PostgreSQL 16 + PostGIS, карту Leaflet/OpenStreetMap и WebSocket-синхронизацию.
+Travel-Collab — дипломный сервис для совместного планирования путешествий. Проект позволяет группе участников создать поездку, пригласить друзей по invite-коду, собрать маршруты по дням, отметить точки на карте, вести групповые расходы и общаться в чате в реальном времени.
 
-## Что уже реализовано в этой версии MVP+
+Проект реализован как full-stack система:
+
+- backend: Go, chi, pgx, JWT, WebSocket;
+- база данных: PostgreSQL 16 + PostGIS;
+- frontend: Vue 3 + Vite + TypeScript;
+- карта: Leaflet + OpenStreetMap;
+- мобильная версия: адаптивный web-интерфейс и Android APK через Capacitor;
+- запуск базы: Docker Compose.
+
+## Основные возможности
 
 - регистрация и вход по email/паролю;
-- JWT-авторизация;
-- опциональный вход через GitHub OAuth2;
+- JWT-авторизация и защита API;
 - создание поездок;
-- invite-код для приглашения;
 - вступление в поездку по invite-коду;
-- список участников поездки;
-- интерактивная карта Leaflet;
-- добавление POI кликом по карте;
-- редактирование и удаление точек;
-- синхронизация точек через WebSocket;
-- групповые расходы;
-- расчёт балансов и упрощённых переводов "кто кому должен";
-- чат внутри поездки через WebSocket;
-- Docker Compose для PostgreSQL + PostGIS.
+- роли участников: `owner`, `editor`, `viewer`;
+- интерактивная карта с точками интереса;
+- маршруты поездки по дням;
+- ручной порядок точек маршрута через drag-and-drop;
+- построение маршрута во внешнем приложении 2ГИС;
+- групповые расходы с несколькими плательщиками;
+- распределение расходов поровну или ручными суммами;
+- расчёт балансов и переводов “кто кому должен”;
+- привязка расходов к маршруту, точке и времени;
+- чат поездки через WebSocket;
+- синхронизация точек, маршрутов, участников, расходов и сообщений в реальном времени;
+- мобильный web-доступ с телефона по локальному IP;
+- Android-приложение, собранное из frontend через Capacitor.
 
 ## Структура проекта
 
 ```text
 travel-collab/
 ├── backend/                 # Go backend
-│   ├── cmd/main.go
+│   ├── cmd/main.go          # точка входа backend
 │   └── internal/
-│       ├── api/             # HTTP handlers
-│       ├── auth/            # JWT, password hashing
-│       ├── config/          # env config
-│       ├── db/              # PostgreSQL connection
+│       ├── api/             # HTTP/WebSocket handlers
+│       ├── auth/            # JWT и пароли
+│       ├── config/          # env-конфигурация
+│       ├── db/              # подключение и миграции
 │       ├── middleware/      # auth/cors middleware
-│       ├── models/          # DTO/models
-│       ├── repository/      # SQL queries
+│       ├── models/          # DTO и модели ответов
+│       ├── repository/      # SQL-запросы
 │       └── ws/              # WebSocket hub/client
-├── frontend/                # Vue 3 + Vite + TypeScript frontend
-├── sql/init.sql             # DB schema
+├── frontend/                # Vue 3 + Vite + TypeScript + Capacitor
+│   ├── src/                 # клиентское приложение
+│   ├── scripts/             # mobile build scripts
+│   └── android/             # Android-проект Capacitor после инициализации
+├── docs/                    # тестирование и безопасность
+├── scripts/                 # dev-скрипты проекта
+├── sql/                     # init.sql и миграции
 ├── docker-compose.yml       # PostgreSQL + PostGIS
 ├── .env.example
 └── README.md
 ```
 
-## Требования для запуска
+## Требования
+
+Для web-разработки:
 
 - Windows 10/11;
 - Docker Desktop;
 - Go 1.23+;
 - Node.js 20+;
-- GoLand для backend;
-- VS Code или GoLand для frontend.
+- npm.
 
-## Быстрый запуск
+Для сборки Android APK дополнительно:
 
-### 1. Распаковать архив
+- Android Studio;
+- Android SDK Platform-Tools;
+- Android SDK Build-Tools;
+- переменная `ANDROID_HOME`, например `C:\Users\valer\AppData\Local\Android\Sdk`.
 
-Распакуй проект в удобную папку, например:
-
-```powershell
-C:\Projects\travel-collab
-```
-
-### 2. Запустить базу данных
+## Быстрый запуск web-версии
 
 В корне проекта:
 
 ```powershell
+.\scripts\dev.ps1
+```
+
+Скрипт поднимает PostgreSQL/PostGIS через Docker Compose, ждёт готовности контейнера, запускает backend и frontend в отдельных PowerShell-окнах.
+
+После запуска:
+
+```text
+Frontend на ПК:      http://localhost:5173
+Backend API:         http://localhost:8080/api/v1
+Backend health:      http://localhost:8080/api/v1/health
+```
+
+Если нужно запустить вручную:
+
+```powershell
 docker compose up -d
-```
-
-Проверить контейнер:
-
-```powershell
-docker ps
-```
-
-Если контейнер стартовал первый раз, `sql/init.sql` автоматически создаст таблицы и расширения `pgcrypto` и `postgis`.
-
-### 3. Создать `.env`
-
-Скопируй `.env.example` в `.env`:
-
-```powershell
-copy .env.example .env
-```
-
-Для локального запуска можно оставить значения по умолчанию.
-
-### 4. Запустить backend
-
-```powershell
 cd backend
-go mod tidy
+$env:DATABASE_URL = "postgres://postgres:postgres@127.0.0.1:5433/travel_collab?sslmode=disable"
 go run ./cmd/main.go
 ```
 
-Backend должен запуститься на:
-
-```text
-http://localhost:8080
-```
-
-Проверка:
-
-```powershell
-curl http://localhost:8080/health
-```
-
-Ожидаемый ответ:
-
-```json
-{"status":"ok"}
-```
-
-### 5. Запустить frontend
-
-В новом терминале:
+В отдельном терминале:
 
 ```powershell
 cd frontend
@@ -124,100 +110,133 @@ npm install
 npm run dev
 ```
 
-Frontend откроется на:
+## Web-версия с телефона или iPhone
+
+Телефон должен быть подключён к Wi-Fi того же роутера, к которому подключён компьютер. У компьютера можно узнать локальный IP командой:
+
+```cmd
+ipconfig
+```
+
+Например, если IPv4 компьютера:
 
 ```text
-http://localhost:5173
+192.168.1.166
 ```
 
-## Как проверить основной сценарий
-
-1. Открой `http://localhost:5173`.
-2. Зарегистрируй пользователя.
-3. Создай поездку.
-4. Открой страницу поездки.
-5. Кликни по карте и добавь точку.
-6. Открой эту же поездку во второй вкладке или в другом браузере.
-7. Добавь/измени точку — изменение должно прийти через WebSocket.
-8. Добавь расход и проверь блок балансов.
-9. Отправь сообщение в чат.
-
-## Проверка invite-кода
-
-1. Создай второго пользователя через другой браузер или режим инкогнито.
-2. Скопируй invite-код из первой поездки.
-3. На странице `/trips` второго пользователя введи invite-код.
-4. Второй пользователь должен попасть в поездку.
-
-## GitHub OAuth2
-
-GitHub OAuth2 в проекте реализован как дополнительная функция. Для обычной демонстрации диплома он не нужен.
-
-Чтобы включить:
-
-1. Создай OAuth App в GitHub Developer Settings.
-2. Callback URL укажи:
+то web-версия на телефоне открывается по адресу:
 
 ```text
-http://localhost:8080/api/v1/auth/github/callback
+http://192.168.1.166:5173
 ```
 
-3. Заполни в `.env`:
+Backend при этом остаётся доступен на компьютере по порту `8080`, а frontend на телефоне обращается к нему через Vite proxy.
 
-```env
-GITHUB_CLIENT_ID=...
-GITHUB_CLIENT_SECRET=...
-GITHUB_CALLBACK_URL=http://localhost:8080/api/v1/auth/github/callback
+Если телефон не открывает frontend, проверь:
+
+- телефон и компьютер в одной сети;
+- frontend запущен через `npm run dev` с `--host 0.0.0.0`;
+- Windows Firewall не блокирует Node.js или порт `5173`.
+
+## Android APK через Capacitor
+
+Подробная инструкция находится в файле:
+
+```text
+frontend/MOBILE.md
 ```
 
-Если эти значения пустые, кнопка GitHub вернёт ошибку о том, что OAuth не настроен.
-
-## Важные замечания
-
-- Локально используется HTTP/WS. Для реального развёртывания HTTPS/WSS обычно включаются через reverse proxy, например Nginx или Caddy.
-- Роль `viewer` заложена в БД, но основной MVP использует `owner` и `editor`.
-- База запускается через Docker Compose, чтобы не устанавливать PostGIS вручную на Windows.
-- Если меняешь `sql/init.sql`, а контейнер уже был создан, нужно пересоздать volume:
+Короткий сценарий:
 
 ```powershell
-docker compose down -v
-docker compose up -d
+cd C:\Users\valer\GolandProjects\travel-collab\frontend
+powershell -ExecutionPolicy Bypass -File .\scripts\mobile-build.ps1 -BackendHost 192.168.1.166
 ```
 
-## Что объяснять на защите
-
-Краткая логика проекта:
-
-- Backend реализует REST API для авторизации, поездок, точек, расходов и сообщений.
-- JWT используется для проверки пользователя.
-- PostgreSQL хранит основные данные, а PostGIS хранит географические координаты точек.
-- Leaflet отображает карту и маркеры на frontend.
-- WebSocket используется для событий реального времени: новые точки, изменение точек, чат, вступление участников и расходы.
-- Расчёт балансов выполняется на backend: плательщик получает положительный баланс, участники разделения получают отрицательный баланс.
-
-## Частые проблемы
-
-### Backend не подключается к БД
-
-Проверь, что Docker запущен и контейнер работает:
-
-```powershell
-docker ps
-```
-
-Проверь `DATABASE_URL` в `.env`.
-
-### Frontend не видит backend
-
-Убедись, что backend запущен на `localhost:8080`, а frontend на `localhost:5173`.
-Vite proxy уже настроен в `frontend/vite.config.ts`.
-
-### PostGIS extension error
-
-Используй именно Docker image:
+После успешной сборки APK будет лежать здесь:
 
 ```text
-postgis/postgis:16-3.4
+frontend/android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-В обычном PostgreSQL без PostGIS таблица `locations` не создастся.
+APK можно перекинуть на Android-телефон и установить вручную. На телефоне не нужно устанавливать Node.js, Go, Docker или Android Studio.
+
+## Проверка backend
+
+Health-check endpoint:
+
+```text
+GET /api/v1/health
+```
+
+Пример:
+
+```powershell
+curl http://localhost:8080/api/v1/health
+```
+
+Ожидаемый ответ:
+
+```json
+{"status":"ok","service":"travel-collab-backend"}
+```
+
+## Проверка проекта перед коммитом
+
+В корне проекта:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\test.ps1
+```
+
+Скрипт запускает:
+
+- `go test ./...` для backend;
+- `npm run build` для frontend.
+
+Дополнительно ручные сценарии описаны в `docs/testing.md`.
+
+## Основной пользовательский сценарий
+
+1. Зарегистрировать пользователя.
+2. Создать поездку.
+3. Скопировать invite-код.
+4. Вторым пользователем вступить в поездку по invite-коду.
+5. Создать маршрут дня.
+6. Добавить несколько точек на карту.
+7. Изменить порядок точек через drag-and-drop.
+8. Открыть маршрут в 2ГИС.
+9. Добавить расход с несколькими плательщиками.
+10. Проверить расчёт балансов и блок “кто кому должен”.
+11. Отправить сообщение в чат.
+12. Проверить синхронизацию в двух клиентах.
+
+## Безопасность
+
+Кратко:
+
+- пароли хранятся в виде bcrypt-хешей;
+- после входа используется JWT;
+- защищённые API требуют `Authorization: Bearer ...`;
+- доступ к поездке проверяется через таблицу участников;
+- WebSocket-подключение проверяет JWT и принадлежность пользователя к поездке;
+- секреты хранятся в `.env`, а не в Git.
+
+Ограничения локальной версии и рекомендации для production описаны в `docs/security.md`.
+
+## Известные ограничения
+
+- локально используется HTTP/WS, а не HTTPS/WSS;
+- Android APK в текущей версии собирается как debug APK;
+- полноценная публикация в Google Play не выполнялась;
+- push-уведомления не реализованы;
+- для production нужно усилить CORS, добавить HTTPS/WSS, rate limiting, refresh-токены и журналирование действий.
+
+## Материалы для диплома
+
+Для дипломной записки удобно использовать:
+
+- `docs/testing.md` — глава о тестировании;
+- `docs/security.md` — раздел о безопасности;
+- `frontend/MOBILE.md` — описание мобильной версии;
+- README — краткое описание возможностей и запуска.

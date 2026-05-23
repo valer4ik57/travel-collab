@@ -7,7 +7,6 @@
       <label>Пароль<input v-model="password" type="password" required minlength="6" /></label>
       <button class="button" :disabled="loading">{{ loading ? 'Входим...' : 'Войти' }}</button>
     </form>
-    <button class="button secondary full" @click="githubLogin">Войти через GitHub</button>
     <p v-if="error" class="error">{{ error }}</p>
     <p class="muted">Нет аккаунта? <RouterLink to="/register">Зарегистрироваться</RouterLink></p>
   </section>
@@ -38,7 +37,4 @@ async function submit() {
   }
 }
 
-function githubLogin() {
-  window.location.href = '/api/v1/auth/github'
-}
 </script>

@@ -66,7 +66,6 @@
             </div>
 
             <div v-if="error" class="error error-box">{{ error }}</div>
-            <button class="button small full compact-submit" :disabled="saving">Добавить расход</button>
           </div>
 
           <div class="form-stack money-stack">
@@ -115,6 +114,11 @@
               </p>
             </div>
           </div>
+        </div>
+
+        <div class="expense-submit-row">
+          <p class="hint">Проверьте сумму оплат и распределения: обе суммы должны совпадать с общим расходом.</p>
+          <button class="button full compact-submit" :disabled="saving">{{ saving ? 'Сохраняем...' : 'Добавить расход' }}</button>
         </div>
       </form>
       <div v-else class="subcard">

@@ -2,7 +2,12 @@ import axios from 'axios'
 import router from '../router'
 import { useAuthStore } from '../stores/auth'
 
-export const API_BASE = '/api/v1'
+function normalizeBaseURL(value: string | undefined, fallback: string) {
+  const cleaned = (value || '').trim()
+  return (cleaned || fallback).replace(/\/$/, '')
+}
+
+export const API_BASE = normalizeBaseURL(import.meta.env.VITE_API_BASE_URL, '/api/v1')
 
 export const http = axios.create({
   baseURL: API_BASE,

@@ -1,6 +1,6 @@
 <template>
   <section v-if="loading" class="card"><p class="muted">Загрузка поездки...</p></section>
-  <section v-else-if="details" class="trip-page mobile-app-layout">
+  <section v-else-if="details" class="trip-page mobile-app-layout" :class="`active-tab-${activeTab}`">
     <div class="mobile-trip-appbar">
       <button type="button" class="mobile-menu-button" aria-label="Открыть меню" @click="mobileMenuOpen = true">☰</button>
       <div class="mobile-appbar-title">
