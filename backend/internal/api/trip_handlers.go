@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 
 	appmiddleware "travel-collab/backend/internal/middleware"
 	"travel-collab/backend/internal/models"
+	"travel-collab/backend/internal/repository"
 )
 
 type createTripRequest struct {
@@ -110,6 +112,10 @@ func (s *Server) handleJoinTrip(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "invite code not found")
 			return
 		}
+		if errors.Is(err, repository.ErrTripMemberRemoved) {
+			writeError(w, http.StatusForbidden, "you were removed from this trip by owner")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to join trip")
 		return
 	}
@@ -137,7 +143,7 @@ func (s *Server) handleLeaveTrip(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := s.store.RemoveTripMember(r.Context(), tripID, userID); err != nil {
+	if err := s.store.LeaveTripMember(r.Context(), tripID, userID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to leave trip")
 		return
 	}

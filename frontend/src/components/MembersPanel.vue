@@ -1,18 +1,27 @@
 <template>
-  <section class="card panel">
+  <section class="card panel members-panel">
     <div class="section-head">
-      <h2>Участники</h2>
+      <div>
+        <h2>Участники</h2>
+        <p class="muted">Роли определяют, кто может менять маршрут, расходы и писать в чат.</p>
+      </div>
       <button class="button small secondary" @click="copyInvite">Скопировать код</button>
     </div>
     <p class="muted">Invite-код: <code>{{ trip.invite_code }}</code></p>
 
-    <ul class="members">
+    <ul class="members large">
       <li v-for="member in members" :key="member.user_id" class="member-row">
-        <img v-if="member.avatar_url" :src="member.avatar_url" alt="" />
+        <img
+          v-if="member.avatar_url && !brokenAvatars.has(member.user_id)"
+          :src="member.avatar_url"
+          alt=""
+          @error="brokenAvatars.add(member.user_id)"
+        />
         <span v-else class="avatar">{{ member.display_name.slice(0, 1).toUpperCase() }}</span>
         <div class="member-main">
           <strong>{{ member.display_name }} <span v-if="member.user_id === currentUserId" class="muted">(это вы)</span></strong>
           <small>{{ roleLabel(member.role) }}</small>
+          <small v-if="member.email">{{ member.email }}</small>
         </div>
 
         <div v-if="currentRole === 'owner' && member.user_id !== currentUserId" class="member-actions">
@@ -26,15 +35,20 @@
       </li>
     </ul>
 
-    <p class="hint">owner управляет участниками; editor редактирует маршрут, расходы и чат; viewer только смотрит.</p>
+    <div class="roles-help subcard">
+      <p><strong>owner</strong> — управляет поездкой и участниками.</p>
+      <p><strong>editor</strong> — редактирует маршрут, расходы и чат.</p>
+      <p><strong>viewer</strong> — только просматривает данные.</p>
+    </div>
+
     <p v-if="copied" class="success">Код скопирован</p>
     <button v-if="currentRole !== 'owner'" class="button small secondary full" type="button" @click="emit('leave')">Выйти из поездки</button>
-    <p v-else class="hint">Владелец не может выйти, пока он единственный owner. Сначала назначь другого owner.</p>
+    <p v-else class="hint">Владелец не может выйти, пока он единственный owner. Сначала назначьте другого owner.</p>
   </section>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 import type { Trip, TripMember } from '../types'
 
 const props = defineProps<{ trip: Trip; members: TripMember[]; currentUserId: string; currentRole: string }>()
@@ -44,6 +58,7 @@ const emit = defineEmits<{
   updateRole: [userId: string, role: TripMember['role']]
 }>()
 const copied = ref(false)
+const brokenAvatars = reactive(new Set<string>())
 
 function roleLabel(role: string) {
   if (role === 'owner') return 'владелец'

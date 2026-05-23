@@ -32,6 +32,10 @@ func main() {
 	}
 	defer pool.Close()
 
+	if err := db.EnsureMigrations(ctx, pool); err != nil {
+		log.Fatalf("database migration error: %v", err)
+	}
+
 	store := repository.NewStore(pool)
 	authService := auth.NewService(cfg.JWTSecret)
 	hub := ws.NewHub()

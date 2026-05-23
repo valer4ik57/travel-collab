@@ -108,6 +108,7 @@ async function joinTrip() {
     router.push(`/trips/${data.trip.id}`)
   } catch (e: any) {
     if (e.response?.status === 404) joinError.value = 'Код приглашения не найден'
+    else if (e.response?.status === 403) joinError.value = 'Владелец удалил вас из этой поездки. Повторный вход по коду недоступен.'
     else joinError.value = e.response?.data?.error || 'Не удалось вступить в поездку'
   } finally {
     joining.value = false

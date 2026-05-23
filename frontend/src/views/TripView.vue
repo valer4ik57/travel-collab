@@ -6,39 +6,62 @@
         <p class="eyebrow">Поездка</p>
         <h1>{{ details.trip.name }}</h1>
         <p class="muted">{{ details.trip.description || 'Описание пока не заполнено' }}</p>
-        <span class="badge">Моя роль: {{ roleLabel(currentRole) }}</span>
+        <div class="header-badges">
+          <span class="badge">Моя роль: {{ roleLabel(currentRole) }}</span>
+          <span class="badge" :class="socket.connected.value ? 'ok' : 'warn'">
+            {{ socket.connected.value ? 'Real-time подключен' : 'Real-time отключён' }}
+          </span>
+        </div>
       </div>
       <div class="status-stack">
-        <span class="badge" :class="socket.connected.value ? 'ok' : 'warn'">
-          {{ socket.connected.value ? 'WebSocket подключен' : 'WebSocket отключён' }}
-        </span>
+        <span class="muted">Invite-код</span>
         <code class="invite">{{ details.trip.invite_code }}</code>
       </div>
     </div>
 
-    <div class="workspace">
-      <MapPanel
-        :trip-id="details.trip.id"
-        :locations="locations"
-        :can-edit="canEdit"
-        @created="addLocation"
-        @updated="updateLocation"
-        @deleted="removeLocation"
-      />
-      <aside class="side-panels">
-        <MembersPanel
-          :trip="details.trip"
-          :members="members"
-          :current-user-id="auth.user?.id || ''"
-          :current-role="currentRole"
-          @leave="leaveTrip"
-          @remove="removeMember"
-          @update-role="updateMemberRole"
-        />
-        <ExpensesPanel :trip-id="details.trip.id" :members="members" :reload-key="expensesReloadKey" :can-edit="canEdit" />
-        <ChatPanel :messages="messages" :connected="socket.connected.value" :can-write="canEdit" @send="sendChat" />
-      </aside>
+    <div class="tabs card">
+      <button :class="tabClass('map')" @click="activeTab = 'map'">Карта</button>
+      <button :class="tabClass('expenses')" @click="activeTab = 'expenses'">Расходы</button>
+      <button :class="tabClass('chat')" @click="activeTab = 'chat'">Чат</button>
+      <button :class="tabClass('members')" @click="activeTab = 'members'">Участники</button>
     </div>
+
+    <MapPanel
+      v-if="activeTab === 'map'"
+      :trip-id="details.trip.id"
+      :locations="locations"
+      :can-edit="canEdit"
+      @created="addLocation"
+      @updated="updateLocation"
+      @deleted="removeLocation"
+    />
+
+    <ExpensesPanel
+      v-if="activeTab === 'expenses'"
+      :trip-id="details.trip.id"
+      :members="members"
+      :reload-key="expensesReloadKey"
+      :can-edit="canEdit"
+    />
+
+    <ChatPanel
+      v-if="activeTab === 'chat'"
+      :messages="messages"
+      :connected="socket.connected.value"
+      :can-write="canEdit"
+      @send="sendChat"
+    />
+
+    <MembersPanel
+      v-if="activeTab === 'members'"
+      :trip="details.trip"
+      :members="members"
+      :current-user-id="auth.user?.id || ''"
+      :current-role="currentRole"
+      @leave="leaveTrip"
+      @remove="removeMember"
+      @update-role="updateMemberRole"
+    />
   </section>
   <section v-else class="card"><p class="error">{{ error || 'Поездка не найдена' }}</p></section>
 </template>
@@ -55,6 +78,8 @@ import MembersPanel from '../components/MembersPanel.vue'
 import ExpensesPanel from '../components/ExpensesPanel.vue'
 import ChatPanel from '../components/ChatPanel.vue'
 
+type TripTab = 'map' | 'expenses' | 'chat' | 'members'
+
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -64,6 +89,7 @@ const loading = ref(true)
 const error = ref('')
 const messages = ref<Message[]>([])
 const expensesReloadKey = ref(0)
+const activeTab = ref<TripTab>('map')
 
 const locations = computed(() => details.value?.locations || [])
 const members = computed(() => details.value?.members || [])
@@ -75,6 +101,10 @@ function roleLabel(role: string) {
   if (role === 'owner') return 'владелец'
   if (role === 'editor') return 'редактор'
   return 'только просмотр'
+}
+
+function tabClass(tab: TripTab) {
+  return ['tab-button', activeTab.value === tab ? 'active' : '']
 }
 
 function handleEvent(event: WSEvent) {

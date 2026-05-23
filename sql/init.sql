@@ -28,12 +28,16 @@ CREATE TABLE IF NOT EXISTS trip_members (
     trip_id   UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
     user_id   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role      VARCHAR(20) NOT NULL DEFAULT 'editor',
+    status    VARCHAR(20) NOT NULL DEFAULT 'active',
     joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (trip_id, user_id),
-    CONSTRAINT trip_members_role_check CHECK (role IN ('owner', 'editor', 'viewer'))
+    CONSTRAINT trip_members_role_check CHECK (role IN ('owner', 'editor', 'viewer')),
+    CONSTRAINT trip_members_status_check CHECK (status IN ('active', 'left', 'removed'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_trip_members_user_id ON trip_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_trip_members_active_user ON trip_members(user_id) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_trip_members_trip_status ON trip_members(trip_id, status);
 
 CREATE TABLE IF NOT EXISTS locations (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

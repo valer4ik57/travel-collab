@@ -23,6 +23,7 @@ export interface TripMember {
   trip_id: string
   user_id: string
   role: 'owner' | 'editor' | 'viewer'
+  status?: 'active' | 'left' | 'removed'
   joined_at: string
   display_name: string
   email?: string | null
@@ -60,6 +61,15 @@ export interface Balance {
   currency: string
 }
 
+export interface ExpenseParticipantSummary {
+  user_id: string
+  display_name: string
+  paid_total: number
+  share_total: number
+  net_balance: number
+  currency: string
+}
+
 export interface Settlement {
   from_user_id: string
   from_name: string
@@ -72,7 +82,10 @@ export interface Settlement {
 export interface ExpensesSummary {
   expenses: Expense[]
   balances: Balance[]
+  participants: ExpenseParticipantSummary[]
   settlements: Settlement[]
+  total_amount: number
+  currency: string
 }
 
 export interface Message {

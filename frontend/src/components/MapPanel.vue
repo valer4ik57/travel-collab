@@ -8,6 +8,16 @@
     </div>
     <div ref="mapEl" class="map"></div>
 
+    <div class="locations-strip">
+      <article v-for="location in locations" :key="location.id" class="location-chip" @click="focusLocation(location)">
+        <strong>{{ location.name }}</strong>
+        <small>{{ categoryLabel(location.category) }}</small>
+      </article>
+      <p v-if="locations.length === 0" class="empty">Точек пока нет. {{ canEdit ? 'Кликните по карте, чтобы добавить первую.' : '' }}</p>
+    </div>
+
+    <p class="hint">Следующий этап развития: к точке можно будет привязать расход, например кафе, экскурсию или транспорт.</p>
+
     <div v-if="draft" class="modal-backdrop" @click.self="draft = null">
       <form class="modal card form" @submit.prevent="saveDraft">
         <h2>{{ editingId ? 'Редактировать точку' : 'Добавить точку' }}</h2>
@@ -76,6 +86,22 @@ onBeforeUnmount(() => {
 })
 
 watch(() => props.locations, renderMarkers, { deep: true })
+
+function categoryLabel(category: string) {
+  const labels: Record<string, string> = {
+    sight: 'Достопримечательность',
+    food: 'Еда',
+    hotel: 'Жильё',
+    transport: 'Транспорт',
+    other: 'Другое'
+  }
+  return labels[category] || category
+}
+
+function focusLocation(location: LocationPoint) {
+  map?.setView([location.lat, location.lng], Math.max(map.getZoom(), 14))
+  markers.get(location.id)?.openPopup()
+}
 
 function center(): [number, number] {
   if (!props.locations.length) return [55.751244, 37.618423]

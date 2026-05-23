@@ -1,10 +1,13 @@
 <template>
-  <section class="card panel chat-panel">
+  <section class="card panel chat-panel chat-page">
     <div class="section-head">
-      <h2>Чат</h2>
+      <div>
+        <h2>Чат</h2>
+        <p class="muted">Обсуждение поездки между участниками.</p>
+      </div>
       <span class="dot" :class="connected ? 'ok' : 'warn'"></span>
     </div>
-    <div class="messages">
+    <div ref="messagesEl" class="messages chat-messages">
       <p v-if="messages.length === 0" class="empty">Сообщений пока нет.</p>
       <article v-for="message in messages" :key="message.id" class="message">
         <strong>{{ message.display_name }}</strong>
@@ -21,12 +24,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import type { Message } from '../types'
 
-defineProps<{ messages: Message[]; connected: boolean; canWrite: boolean }>()
+const props = defineProps<{ messages: Message[]; connected: boolean; canWrite: boolean }>()
 const emit = defineEmits<{ send: [text: string] }>()
 const text = ref('')
+const messagesEl = ref<HTMLDivElement | null>(null)
+
+function scrollDown() {
+  nextTick(() => {
+    if (messagesEl.value) messagesEl.value.scrollTop = messagesEl.value.scrollHeight
+  })
+}
+
+watch(() => props.messages.length, scrollDown, { immediate: true })
 
 function submit() {
   const value = text.value.trim()

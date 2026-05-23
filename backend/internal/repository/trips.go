@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -11,6 +12,8 @@ import (
 
 	"travel-collab/backend/internal/models"
 )
+
+var ErrTripMemberRemoved = errors.New("trip member was removed")
 
 const inviteAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
@@ -54,8 +57,8 @@ func (s *Store) CreateTrip(ctx context.Context, ownerID, name string, descriptio
 	}
 
 	_, err = tx.Exec(ctx, `
-		INSERT INTO trip_members (trip_id, user_id, role)
-		VALUES ($1, $2, 'owner')
+		INSERT INTO trip_members (trip_id, user_id, role, status)
+		VALUES ($1, $2, 'owner', 'active')
 	`, trip.ID, ownerID)
 	if err != nil {
 		return trip, err
@@ -69,8 +72,8 @@ func (s *Store) ListTripsForUser(ctx context.Context, userID string) ([]models.T
 		       COUNT(DISTINCT tm2.user_id) AS members_count,
 		       COUNT(DISTINCT l.id) AS locations_count
 		FROM trips t
-		JOIN trip_members tm ON tm.trip_id = t.id AND tm.user_id = $1
-		LEFT JOIN trip_members tm2 ON tm2.trip_id = t.id
+		JOIN trip_members tm ON tm.trip_id = t.id AND tm.user_id = $1 AND tm.status = 'active'
+		LEFT JOIN trip_members tm2 ON tm2.trip_id = t.id AND tm2.status = 'active'
 		LEFT JOIN locations l ON l.trip_id = t.id
 		GROUP BY t.id
 		ORDER BY t.created_at DESC
@@ -119,7 +122,7 @@ func (s *Store) GetTripDetails(ctx context.Context, tripID string) (models.TripD
 func (s *Store) IsTripMember(ctx context.Context, tripID, userID string) (bool, error) {
 	var exists bool
 	err := s.DB.QueryRow(ctx, `
-		SELECT EXISTS(SELECT 1 FROM trip_members WHERE trip_id = $1 AND user_id = $2)
+		SELECT EXISTS(SELECT 1 FROM trip_members WHERE trip_id = $1 AND user_id = $2 AND status = 'active')
 	`, tripID, userID).Scan(&exists)
 	return exists, err
 }
@@ -127,17 +130,17 @@ func (s *Store) IsTripMember(ctx context.Context, tripID, userID string) (bool, 
 func (s *Store) GetTripMemberRole(ctx context.Context, tripID, userID string) (string, error) {
 	var role string
 	err := s.DB.QueryRow(ctx, `
-		SELECT role FROM trip_members WHERE trip_id = $1 AND user_id = $2
+		SELECT role FROM trip_members WHERE trip_id = $1 AND user_id = $2 AND status = 'active'
 	`, tripID, userID).Scan(&role)
 	return role, err
 }
 
 func (s *Store) ListTripMembers(ctx context.Context, tripID string) ([]models.TripMember, error) {
 	rows, err := s.DB.Query(ctx, `
-		SELECT tm.trip_id, tm.user_id, tm.role, tm.joined_at, u.display_name, u.email, u.avatar_url
+		SELECT tm.trip_id, tm.user_id, tm.role, tm.status, tm.joined_at, u.display_name, u.email, u.avatar_url
 		FROM trip_members tm
 		JOIN users u ON u.id = tm.user_id
-		WHERE tm.trip_id = $1
+		WHERE tm.trip_id = $1 AND tm.status = 'active'
 		ORDER BY CASE tm.role WHEN 'owner' THEN 1 WHEN 'editor' THEN 2 ELSE 3 END, tm.joined_at ASC
 	`, tripID)
 	if err != nil {
@@ -147,7 +150,7 @@ func (s *Store) ListTripMembers(ctx context.Context, tripID string) ([]models.Tr
 	members := make([]models.TripMember, 0)
 	for rows.Next() {
 		var m models.TripMember
-		if err := rows.Scan(&m.TripID, &m.UserID, &m.Role, &m.JoinedAt, &m.DisplayName, &m.Email, &m.AvatarURL); err != nil {
+		if err := rows.Scan(&m.TripID, &m.UserID, &m.Role, &m.Status, &m.JoinedAt, &m.DisplayName, &m.Email, &m.AvatarURL); err != nil {
 			return nil, err
 		}
 		members = append(members, m)
@@ -171,23 +174,37 @@ func (s *Store) JoinTripByInviteCode(ctx context.Context, userID, inviteCode str
 		return trip, models.TripMember{}, false, err
 	}
 
-	ct, err := tx.Exec(ctx, `
-		INSERT INTO trip_members (trip_id, user_id, role)
-		VALUES ($1, $2, 'editor')
-		ON CONFLICT (trip_id, user_id) DO NOTHING
-	`, trip.ID, userID)
+	var oldRole, oldStatus string
+	err = tx.QueryRow(ctx, `
+		SELECT role, status FROM trip_members WHERE trip_id = $1 AND user_id = $2
+	`, trip.ID, userID).Scan(&oldRole, &oldStatus)
+
+	created := false
+	if err == pgx.ErrNoRows {
+		_, err = tx.Exec(ctx, `
+			INSERT INTO trip_members (trip_id, user_id, role, status, joined_at)
+			VALUES ($1, $2, 'editor', 'active', now())
+		`, trip.ID, userID)
+		created = true
+	} else if err == nil {
+		if oldStatus == "removed" {
+			return trip, models.TripMember{}, false, ErrTripMemberRemoved
+		}
+		if oldStatus == "left" {
+			_, err = tx.Exec(ctx, `
+				UPDATE trip_members SET status = 'active', joined_at = now()
+				WHERE trip_id = $1 AND user_id = $2
+			`, trip.ID, userID)
+			created = true
+		}
+	} else {
+		return trip, models.TripMember{}, false, err
+	}
 	if err != nil {
 		return trip, models.TripMember{}, false, err
 	}
-	created := ct.RowsAffected() > 0
 
-	var member models.TripMember
-	err = tx.QueryRow(ctx, `
-		SELECT tm.trip_id, tm.user_id, tm.role, tm.joined_at, u.display_name, u.email, u.avatar_url
-		FROM trip_members tm
-		JOIN users u ON u.id = tm.user_id
-		WHERE tm.trip_id = $1 AND tm.user_id = $2
-	`, trip.ID, userID).Scan(&member.TripID, &member.UserID, &member.Role, &member.JoinedAt, &member.DisplayName, &member.Email, &member.AvatarURL)
+	member, err := scanTripMember(ctx, tx, trip.ID, userID)
 	if err != nil {
 		return trip, models.TripMember{}, false, err
 	}
@@ -197,6 +214,17 @@ func (s *Store) JoinTripByInviteCode(ctx context.Context, userID, inviteCode str
 	return trip, member, created, nil
 }
 
+func scanTripMember(ctx context.Context, tx pgx.Tx, tripID, userID string) (models.TripMember, error) {
+	var member models.TripMember
+	err := tx.QueryRow(ctx, `
+		SELECT tm.trip_id, tm.user_id, tm.role, tm.status, tm.joined_at, u.display_name, u.email, u.avatar_url
+		FROM trip_members tm
+		JOIN users u ON u.id = tm.user_id
+		WHERE tm.trip_id = $1 AND tm.user_id = $2
+	`, tripID, userID).Scan(&member.TripID, &member.UserID, &member.Role, &member.Status, &member.JoinedAt, &member.DisplayName, &member.Email, &member.AvatarURL)
+	return member, err
+}
+
 func (s *Store) EnsureAllUsersAreTripMembers(ctx context.Context, tripID string, userIDs []string) error {
 	for _, uid := range userIDs {
 		ok, err := s.IsTripMember(ctx, tripID, uid)
@@ -204,7 +232,7 @@ func (s *Store) EnsureAllUsersAreTripMembers(ctx context.Context, tripID string,
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("user %s is not a trip member", uid)
+			return fmt.Errorf("user %s is not an active trip member", uid)
 		}
 	}
 	return nil
@@ -215,9 +243,9 @@ func (s *Store) UpdateTripMemberRole(ctx context.Context, tripID, targetUserID, 
 	err := s.DB.QueryRow(ctx, `
 		UPDATE trip_members
 		SET role = $3
-		WHERE trip_id = $1 AND user_id = $2
-		RETURNING trip_id, user_id, role, joined_at
-	`, tripID, targetUserID, role).Scan(&member.TripID, &member.UserID, &member.Role, &member.JoinedAt)
+		WHERE trip_id = $1 AND user_id = $2 AND status = 'active'
+		RETURNING trip_id, user_id, role, status, joined_at
+	`, tripID, targetUserID, role).Scan(&member.TripID, &member.UserID, &member.Role, &member.Status, &member.JoinedAt)
 	if err != nil {
 		return member, err
 	}
@@ -231,8 +259,25 @@ func (s *Store) UpdateTripMemberRole(ctx context.Context, tripID, targetUserID, 
 	return member, nil
 }
 
+func (s *Store) LeaveTripMember(ctx context.Context, tripID, targetUserID string) error {
+	ct, err := s.DB.Exec(ctx, `
+		UPDATE trip_members SET status = 'left'
+		WHERE trip_id = $1 AND user_id = $2 AND status = 'active'
+	`, tripID, targetUserID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
 func (s *Store) RemoveTripMember(ctx context.Context, tripID, targetUserID string) error {
-	ct, err := s.DB.Exec(ctx, `DELETE FROM trip_members WHERE trip_id = $1 AND user_id = $2`, tripID, targetUserID)
+	ct, err := s.DB.Exec(ctx, `
+		UPDATE trip_members SET status = 'removed'
+		WHERE trip_id = $1 AND user_id = $2 AND status = 'active'
+	`, tripID, targetUserID)
 	if err != nil {
 		return err
 	}
@@ -245,7 +290,7 @@ func (s *Store) RemoveTripMember(ctx context.Context, tripID, targetUserID strin
 func (s *Store) CountOwners(ctx context.Context, tripID string) (int, error) {
 	var count int
 	err := s.DB.QueryRow(ctx, `
-		SELECT COUNT(*) FROM trip_members WHERE trip_id = $1 AND role = 'owner'
+		SELECT COUNT(*) FROM trip_members WHERE trip_id = $1 AND role = 'owner' AND status = 'active'
 	`, tripID).Scan(&count)
 	return count, err
 }

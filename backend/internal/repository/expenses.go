@@ -64,37 +64,64 @@ func (s *Store) GetExpensesSummary(ctx context.Context, tripID string) (models.E
 	}
 
 	currency := "RUB"
-	amountByUser := make(map[string]float64)
+	paidByUser := make(map[string]float64)
+	shareByUser := make(map[string]float64)
 	nameByUser := make(map[string]string)
 	for _, m := range members {
-		amountByUser[m.UserID] = 0
+		paidByUser[m.UserID] = 0
+		shareByUser[m.UserID] = 0
 		nameByUser[m.UserID] = m.DisplayName
 	}
+
+	totalAmount := 0.0
 	for _, e := range expenses {
 		currency = e.Currency
-		amountByUser[e.PaidBy] += e.Amount
+		totalAmount += e.Amount
+		if _, ok := paidByUser[e.PaidBy]; !ok {
+			paidByUser[e.PaidBy] = 0
+			shareByUser[e.PaidBy] = 0
+			nameByUser[e.PaidBy] = e.PaidByName
+		}
+		paidByUser[e.PaidBy] += e.Amount
 		if len(e.SplitWith) == 0 {
 			continue
 		}
 		share := e.Amount / float64(len(e.SplitWith))
 		for _, uid := range e.SplitWith {
-			amountByUser[uid] -= share
+			if _, ok := shareByUser[uid]; !ok {
+				paidByUser[uid] = 0
+				shareByUser[uid] = 0
+				nameByUser[uid] = "Участник вне поездки"
+			}
+			shareByUser[uid] += share
 		}
 	}
 
-	balances := make([]models.Balance, 0, len(amountByUser))
-	for uid, amount := range amountByUser {
+	balances := make([]models.Balance, 0, len(paidByUser))
+	participants := make([]models.ExpenseParticipantSummary, 0, len(paidByUser))
+	for uid, paid := range paidByUser {
+		share := shareByUser[uid]
+		net := paid - share
 		balances = append(balances, models.Balance{
 			UserID:      uid,
 			DisplayName: nameByUser[uid],
-			Amount:      round2(amount),
+			Amount:      round2(net),
+			Currency:    currency,
+		})
+		participants = append(participants, models.ExpenseParticipantSummary{
+			UserID:      uid,
+			DisplayName: nameByUser[uid],
+			PaidTotal:   round2(paid),
+			ShareTotal:  round2(share),
+			NetBalance:  round2(net),
 			Currency:    currency,
 		})
 	}
 	sort.Slice(balances, func(i, j int) bool { return balances[i].DisplayName < balances[j].DisplayName })
+	sort.Slice(participants, func(i, j int) bool { return participants[i].DisplayName < participants[j].DisplayName })
 
 	settlements := buildSettlements(balances, currency)
-	return models.ExpensesSummary{Expenses: expenses, Balances: balances, Settlements: settlements}, nil
+	return models.ExpensesSummary{Expenses: expenses, Balances: balances, Participants: participants, Settlements: settlements, TotalAmount: round2(totalAmount), Currency: currency}, nil
 }
 
 func buildSettlements(balances []models.Balance, currency string) []models.Settlement {

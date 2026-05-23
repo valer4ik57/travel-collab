@@ -28,6 +28,7 @@ type TripMember struct {
 	TripID      string    `json:"trip_id"`
 	UserID      string    `json:"user_id"`
 	Role        string    `json:"role"`
+	Status      string    `json:"status"`
 	JoinedAt    time.Time `json:"joined_at"`
 	DisplayName string    `json:"display_name"`
 	Email       *string   `json:"email"`
@@ -65,6 +66,15 @@ type Balance struct {
 	Currency    string  `json:"currency"`
 }
 
+type ExpenseParticipantSummary struct {
+	UserID      string  `json:"user_id"`
+	DisplayName string  `json:"display_name"`
+	PaidTotal   float64 `json:"paid_total"`
+	ShareTotal  float64 `json:"share_total"`
+	NetBalance  float64 `json:"net_balance"`
+	Currency    string  `json:"currency"`
+}
+
 type Settlement struct {
 	FromUserID string  `json:"from_user_id"`
 	FromName   string  `json:"from_name"`
@@ -75,9 +85,12 @@ type Settlement struct {
 }
 
 type ExpensesSummary struct {
-	Expenses    []Expense    `json:"expenses"`
-	Balances    []Balance    `json:"balances"`
-	Settlements []Settlement `json:"settlements"`
+	Expenses     []Expense                   `json:"expenses"`
+	Balances     []Balance                   `json:"balances"`
+	Participants []ExpenseParticipantSummary `json:"participants"`
+	Settlements  []Settlement                `json:"settlements"`
+	TotalAmount  float64                     `json:"total_amount"`
+	Currency     string                      `json:"currency"`
 }
 
 type Message struct {
