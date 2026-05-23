@@ -15,6 +15,10 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
 }
 
+func writeErrorDetails(w http.ResponseWriter, status int, message string, details map[string]interface{}) {
+	writeJSON(w, status, map[string]interface{}{"error": message, "details": details})
+}
+
 func decodeJSON(r *http.Request, dst interface{}) error {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()

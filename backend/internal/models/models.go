@@ -24,6 +24,15 @@ type Trip struct {
 	LocationsCount int        `json:"locations_count,omitempty"`
 }
 
+type TripRoute struct {
+	ID        string     `json:"id"`
+	TripID    string     `json:"trip_id"`
+	Title     string     `json:"title"`
+	RouteDate *time.Time `json:"route_date"`
+	SortOrder int        `json:"sort_order"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
 type TripMember struct {
 	TripID      string    `json:"trip_id"`
 	UserID      string    `json:"user_id"`
@@ -36,27 +45,53 @@ type TripMember struct {
 }
 
 type Location struct {
-	ID          string    `json:"id"`
-	TripID      string    `json:"trip_id"`
-	Name        string    `json:"name"`
-	Description *string   `json:"description"`
-	Lat         float64   `json:"lat"`
-	Lng         float64   `json:"lng"`
-	Category    string    `json:"category"`
-	CreatedBy   string    `json:"created_by"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          string     `json:"id"`
+	TripID      string     `json:"trip_id"`
+	Name        string     `json:"name"`
+	Description *string    `json:"description"`
+	Lat         float64    `json:"lat"`
+	Lng         float64    `json:"lng"`
+	Category    string     `json:"category"`
+	VisitAt     *time.Time `json:"visit_at"`
+	RouteID     *string    `json:"route_id"`
+	RouteTitle  *string    `json:"route_title,omitempty"`
+	RouteDate   *time.Time `json:"route_date,omitempty"`
+	RouteOrder  *int       `json:"route_order"`
+	CreatedBy   string     `json:"created_by"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
+type ExpensePayment struct {
+	UserID      string  `json:"user_id"`
+	DisplayName string  `json:"display_name,omitempty"`
+	Amount      float64 `json:"amount"`
+}
+
+type ExpenseShare struct {
+	UserID      string  `json:"user_id"`
+	DisplayName string  `json:"display_name,omitempty"`
+	Amount      float64 `json:"amount"`
 }
 
 type Expense struct {
-	ID          string    `json:"id"`
-	TripID      string    `json:"trip_id"`
-	Description string    `json:"description"`
-	Amount      float64   `json:"amount"`
-	Currency    string    `json:"currency"`
-	PaidBy      string    `json:"paid_by"`
-	PaidByName  string    `json:"paid_by_name,omitempty"`
-	SplitWith   []string  `json:"split_with"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           string           `json:"id"`
+	TripID       string           `json:"trip_id"`
+	Description  string           `json:"description"`
+	Amount       float64          `json:"amount"`
+	Currency     string           `json:"currency"`
+	PaidBy       string           `json:"paid_by,omitempty"`
+	PaidByName   string           `json:"paid_by_name,omitempty"`
+	SplitWith    []string         `json:"split_with"`
+	Payments     []ExpensePayment `json:"payments"`
+	Shares       []ExpenseShare   `json:"shares"`
+	SplitMode    string           `json:"split_mode"`
+	RouteID      *string          `json:"route_id"`
+	RouteTitle   *string          `json:"route_title,omitempty"`
+	RouteDate    *time.Time       `json:"route_date,omitempty"`
+	LocationID   *string          `json:"location_id"`
+	LocationName *string          `json:"location_name,omitempty"`
+	ExpenseAt    *time.Time       `json:"expense_at"`
+	CreatedAt    time.Time        `json:"created_at"`
 }
 
 type Balance struct {
@@ -84,13 +119,25 @@ type Settlement struct {
 	Currency   string  `json:"currency"`
 }
 
+type RouteExpenseSummary struct {
+	RouteID       *string    `json:"route_id"`
+	RouteTitle    string     `json:"route_title"`
+	RouteDate     *time.Time `json:"route_date"`
+	TotalAmount   float64    `json:"total_amount"`
+	ExpensesCount int        `json:"expenses_count"`
+	Currency      string     `json:"currency"`
+}
+
 type ExpensesSummary struct {
-	Expenses     []Expense                   `json:"expenses"`
-	Balances     []Balance                   `json:"balances"`
-	Participants []ExpenseParticipantSummary `json:"participants"`
-	Settlements  []Settlement                `json:"settlements"`
-	TotalAmount  float64                     `json:"total_amount"`
-	Currency     string                      `json:"currency"`
+	Expenses       []Expense                   `json:"expenses"`
+	Balances       []Balance                   `json:"balances"`
+	Participants   []ExpenseParticipantSummary `json:"participants"`
+	Settlements    []Settlement                `json:"settlements"`
+	RouteSummaries []RouteExpenseSummary       `json:"route_summaries"`
+	TotalAmount    float64                     `json:"total_amount"`
+	TotalPaid      float64                     `json:"total_paid"`
+	TotalShares    float64                     `json:"total_shares"`
+	Currency       string                      `json:"currency"`
 }
 
 type Message struct {
@@ -106,6 +153,7 @@ type Message struct {
 type TripDetails struct {
 	Trip      Trip         `json:"trip"`
 	Members   []TripMember `json:"members"`
+	Routes    []TripRoute  `json:"routes"`
 	Locations []Location   `json:"locations"`
 }
 

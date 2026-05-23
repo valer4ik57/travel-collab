@@ -112,11 +112,15 @@ func (s *Store) GetTripDetails(ctx context.Context, tripID string) (models.TripD
 	if err != nil {
 		return models.TripDetails{}, err
 	}
+	routes, err := s.ListRoutes(ctx, tripID)
+	if err != nil {
+		return models.TripDetails{}, err
+	}
 	locations, err := s.ListLocations(ctx, tripID)
 	if err != nil {
 		return models.TripDetails{}, err
 	}
-	return models.TripDetails{Trip: trip, Members: members, Locations: locations}, nil
+	return models.TripDetails{Trip: trip, Members: members, Routes: routes, Locations: locations}, nil
 }
 
 func (s *Store) IsTripMember(ctx context.Context, tripID, userID string) (bool, error) {

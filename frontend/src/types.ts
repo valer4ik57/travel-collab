@@ -19,6 +19,15 @@ export interface Trip {
   locations_count?: number
 }
 
+export interface TripRoute {
+  id: string
+  trip_id: string
+  title: string
+  route_date?: string | null
+  sort_order: number
+  created_at: string
+}
+
 export interface TripMember {
   trip_id: string
   user_id: string
@@ -38,8 +47,25 @@ export interface LocationPoint {
   lat: number
   lng: number
   category: string
+  visit_at?: string | null
+  route_id?: string | null
+  route_title?: string | null
+  route_date?: string | null
+  route_order?: number | null
   created_by: string
   created_at: string
+}
+
+export interface ExpensePayment {
+  user_id: string
+  display_name?: string
+  amount: number
+}
+
+export interface ExpenseShare {
+  user_id: string
+  display_name?: string
+  amount: number
 }
 
 export interface Expense {
@@ -48,9 +74,18 @@ export interface Expense {
   description: string
   amount: number
   currency: string
-  paid_by: string
+  paid_by?: string
   paid_by_name?: string
   split_with: string[]
+  payments: ExpensePayment[]
+  shares: ExpenseShare[]
+  split_mode: 'equal' | 'weights' | 'manual' | string
+  route_id?: string | null
+  route_title?: string | null
+  route_date?: string | null
+  location_id?: string | null
+  location_name?: string | null
+  expense_at?: string | null
   created_at: string
 }
 
@@ -79,12 +114,24 @@ export interface Settlement {
   currency: string
 }
 
+export interface RouteExpenseSummary {
+  route_id?: string | null
+  route_title: string
+  route_date?: string | null
+  total_amount: number
+  expenses_count: number
+  currency: string
+}
+
 export interface ExpensesSummary {
   expenses: Expense[]
   balances: Balance[]
   participants: ExpenseParticipantSummary[]
   settlements: Settlement[]
+  route_summaries: RouteExpenseSummary[]
   total_amount: number
+  total_paid: number
+  total_shares: number
   currency: string
 }
 
@@ -101,6 +148,7 @@ export interface Message {
 export interface TripDetails {
   trip: Trip
   members: TripMember[]
+  routes: TripRoute[]
   locations: LocationPoint[]
 }
 

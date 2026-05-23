@@ -39,6 +39,19 @@ CREATE INDEX IF NOT EXISTS idx_trip_members_user_id ON trip_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_trip_members_active_user ON trip_members(user_id) WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS idx_trip_members_trip_status ON trip_members(trip_id, status);
 
+
+CREATE TABLE IF NOT EXISTS trip_routes (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    trip_id    UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    title      VARCHAR(255) NOT NULL,
+    route_date DATE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_trip_routes_trip_id ON trip_routes(trip_id);
+CREATE INDEX IF NOT EXISTS idx_trip_routes_trip_order ON trip_routes(trip_id, route_date, sort_order);
+
 CREATE TABLE IF NOT EXISTS locations (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     trip_id     UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
@@ -46,12 +59,18 @@ CREATE TABLE IF NOT EXISTS locations (
     description TEXT,
     coordinates GEOMETRY(Point, 4326) NOT NULL,
     category    VARCHAR(50) DEFAULT 'other',
+    visit_at    TIMESTAMPTZ,
+    route_id    UUID REFERENCES trip_routes(id) ON DELETE SET NULL,
+    route_order INTEGER,
     created_by  UUID NOT NULL REFERENCES users(id),
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_locations_trip_id ON locations(trip_id);
 CREATE INDEX IF NOT EXISTS idx_locations_coords ON locations USING GIST(coordinates);
+CREATE INDEX IF NOT EXISTS idx_locations_trip_visit_at ON locations(trip_id, visit_at);
+CREATE INDEX IF NOT EXISTS idx_locations_route_id ON locations(route_id);
+CREATE INDEX IF NOT EXISTS idx_locations_route_order ON locations(route_id, route_order);
 
 CREATE TABLE IF NOT EXISTS expenses (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -61,11 +80,21 @@ CREATE TABLE IF NOT EXISTS expenses (
     currency    CHAR(3) NOT NULL DEFAULT 'RUB',
     paid_by     UUID NOT NULL REFERENCES users(id),
     split_with  JSONB NOT NULL DEFAULT '[]',
+    location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
+    route_id    UUID REFERENCES trip_routes(id) ON DELETE SET NULL,
+    expense_at  TIMESTAMPTZ,
+    payments    JSONB NOT NULL DEFAULT '[]',
+    shares      JSONB NOT NULL DEFAULT '[]',
+    split_mode  VARCHAR(20) NOT NULL DEFAULT 'equal',
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT expenses_amount_positive CHECK (amount > 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_expenses_trip_id ON expenses(trip_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_location_id ON expenses(location_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_route_id ON expenses(route_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_trip_route ON expenses(trip_id, route_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_expense_at ON expenses(trip_id, expense_at);
 
 CREATE TABLE IF NOT EXISTS messages (
     id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
