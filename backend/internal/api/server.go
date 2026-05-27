@@ -77,6 +77,8 @@ func (s *Server) routes() http.Handler {
 			r.Delete("/trips/{trip_id}/locations/{location_id}", s.handleDeleteLocation)
 			r.Get("/trips/{trip_id}/expenses", s.handleListExpenses)
 			r.Post("/trips/{trip_id}/expenses", s.handleCreateExpense)
+			r.Put("/trips/{trip_id}/expenses/{expense_id}", s.handleUpdateExpense)
+			r.Delete("/trips/{trip_id}/expenses/{expense_id}", s.handleDeleteExpense)
 			r.Get("/trips/{trip_id}/messages", s.handleListMessages)
 		})
 	})

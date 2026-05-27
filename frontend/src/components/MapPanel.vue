@@ -8,8 +8,8 @@
         </p>
       </div>
       <div class="actions">
-        <button type="button" class="button small secondary" :disabled="activeRouteLocations.length < 2" @click="openSelectedRouteIn2gis">
-          Открыть выбранный маршрут в 2ГИС
+        <button type="button" class="button small secondary" :disabled="activeRouteLocations.length < 2" @click="openRouteMapChooser">
+          Открыть маршрут на карте
         </button>
       </div>
     </div>
@@ -58,7 +58,7 @@
             <h4>Порядок точек</h4>
             <span class="badge">{{ activeRouteLocations.length }}</span>
           </div>
-          <p class="hint">Меняйте порядок здесь и сразу смотрите на карту. Линия и 2ГИС используют этот список сверху вниз.</p>
+          <p class="hint">Меняйте порядок здесь и сразу смотрите на карту. Линия и внешние карты используют этот список сверху вниз.</p>
           <div v-if="activeRouteLocations.length" class="route-order-list">
             <article
               v-for="(location, index) in activeRouteLocations"
@@ -134,6 +134,23 @@
     <p class="hint">
       Линия на карте строится только для выбранного маршрута и использует ручной порядок точек. В режиме “Все точки” показываются все маркеры без общей линии.
     </p>
+
+    <div v-if="mapChooser" class="modal-backdrop" @click.self="closeMapChooser">
+      <div class="modal card map-open-modal">
+        <h2>{{ mapChooser.mode === 'route' ? 'Открыть маршрут на карте' : 'Открыть точку на карте' }}</h2>
+        <p class="muted">Выберите приложение или сервис, в котором нужно открыть {{ mapChooser.mode === 'route' ? 'выбранный маршрут' : 'точку' }}.</p>
+        <div class="map-provider-list">
+          <button type="button" class="button secondary" @click="openChosenMap('google')">Google Maps</button>
+          <button type="button" class="button secondary" @click="openChosenMap('yandex')">Яндекс Карты</button>
+          <button type="button" class="button secondary" @click="openChosenMap('2gis')">2ГИС</button>
+          <button v-if="mapChooser.mode === 'point'" type="button" class="button secondary" @click="openChosenMap('system')">Системная карта</button>
+        </div>
+        <p v-if="mapChooser.mode === 'route'" class="hint">Для маршрута передается ручной порядок точек из выбранного дня. Внешний сервис сам строит дорогу между ними.</p>
+        <div class="actions right">
+          <button type="button" class="button secondary" @click="closeMapChooser">Закрыть</button>
+        </div>
+      </div>
+    </div>
 
     <div v-if="draft" class="modal-backdrop" @click.self="closeDraft">
       <form class="modal card form" @submit.prevent="saveDraft">
@@ -233,7 +250,9 @@ let map: L.Map | null = null
 let routeLine: L.Polyline | null = null
 const markers = new Map<string, L.Marker>()
 const draft = ref<null | { name: string; description: string; category: string; lat: number; lng: number; visit_at: string; route_id: string }>(null)
+type MapProvider = 'google' | 'yandex' | '2gis' | 'system'
 const editingId = ref<string | null>(null)
+const mapChooser = ref<null | { mode: 'route' | 'point'; location?: LocationPoint }>(null)
 
 const sortedRoutes = computed(() => [...props.routes].sort(compareRoutes))
 const selectedRoute = computed(() => props.routes.find((route) => route.id === props.selectedRouteId) || null)
@@ -589,7 +608,7 @@ function popupHtml(location: LocationPoint) {
       <small>${escapeHtml(formatVisit(location.visit_at))}</small>
       ${expensesHtml}
       <div class="popup-actions">
-        <button data-action="2gis" data-id="${location.id}">Открыть в 2ГИС</button>
+        <button data-action="map" data-id="${location.id}">Открыть на карте</button>
         ${editActions}
       </div>
     </div>
@@ -600,8 +619,8 @@ function attachPopupHandlers(locationID: string) {
   setTimeout(() => {
     const location = props.locations.find((item) => item.id === locationID)
     if (!location) return
-    document.querySelector(`button[data-action="2gis"][data-id="${location.id}"]`)?.addEventListener('click', () => {
-      openPointIn2gis(location)
+    document.querySelector(`button[data-action="map"][data-id="${location.id}"]`)?.addEventListener('click', () => {
+      openPointMapChooser(location)
     })
     if (!props.canEdit) return
     document.querySelector(`button[data-action="expense"][data-id="${location.id}"]`)?.addEventListener('click', () => {
@@ -695,18 +714,70 @@ function toDateTimeLocal(value?: string | null) {
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16)
 }
 
-function openPointIn2gis(location: LocationPoint) {
-  window.open(`https://2gis.ru/directions/points/|${location.lng},${location.lat}`, '_blank', 'noopener,noreferrer')
+function openPointMapChooser(location: LocationPoint) {
+  panelError.value = ''
+  mapChooser.value = { mode: 'point', location }
 }
 
-function openSelectedRouteIn2gis() {
+function openRouteMapChooser() {
   panelError.value = ''
   if (activeRouteLocations.value.length < 2) {
-    panelError.value = 'Для построения маршрута в 2ГИС добавьте минимум две точки в выбранный маршрут.'
+    panelError.value = 'Для построения маршрута на внешней карте добавьте минимум две точки в выбранный маршрут.'
     return
   }
-  const points = activeRouteLocations.value.slice(0, 10).map((location) => `${location.lng},${location.lat}`).join('|')
-  window.open(`https://2gis.ru/directions/tab/pedestrian/points/${points}`, '_blank', 'noopener,noreferrer')
+  mapChooser.value = { mode: 'route' }
+}
+
+function closeMapChooser() {
+  mapChooser.value = null
+}
+
+function openChosenMap(provider: MapProvider) {
+  const chooser = mapChooser.value
+  if (!chooser) return
+  const url = chooser.mode === 'point' && chooser.location
+    ? pointMapUrl(chooser.location, provider)
+    : routeMapUrl(provider)
+  if (!url) {
+    panelError.value = 'Не удалось сформировать ссылку для выбранной карты.'
+    return
+  }
+  closeMapChooser()
+  if (url.startsWith('geo:')) {
+    window.location.href = url
+    return
+  }
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+function pointMapUrl(location: LocationPoint, provider: MapProvider) {
+  const lat = location.lat
+  const lng = location.lng
+  const name = encodeURIComponent(location.name)
+  if (provider === 'google') return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+  if (provider === 'yandex') return `https://yandex.ru/maps/?ll=${lng}%2C${lat}&z=16&pt=${lng}%2C${lat}%2Cpm2rdm`
+  if (provider === '2gis') return `https://2gis.ru/directions/points/|${lng},${lat}`
+  return `geo:${lat},${lng}?q=${lat},${lng}(${name})`
+}
+
+function routeMapUrl(provider: Exclude<MapProvider, 'system'> | MapProvider) {
+  const points = activeRouteLocations.value.filter((location) => Number.isFinite(location.lat) && Number.isFinite(location.lng))
+  if (points.length < 2) return ''
+  const first = points[0]
+  const last = points[points.length - 1]
+  const middle = points.slice(1, -1)
+  if (provider === 'google' || provider === 'system') {
+    const origin = `${first.lat},${first.lng}`
+    const destination = `${last.lat},${last.lng}`
+    const waypoints = middle.map((location) => `${location.lat},${location.lng}`).join('|')
+    return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}${waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : ''}&travelmode=walking`
+  }
+  if (provider === 'yandex') {
+    const rtext = points.map((location) => `${location.lat},${location.lng}`).join('~')
+    return `https://yandex.ru/maps/?rtext=${encodeURIComponent(rtext)}&rtt=pd`
+  }
+  const dgisPoints = points.slice(0, 10).map((location) => `${location.lng},${location.lat}`).join('|')
+  return `https://2gis.ru/directions/tab/pedestrian/points/${dgisPoints}`
 }
 
 function formatApiError(e: any, fallback: string) {
@@ -728,3 +799,15 @@ function escapeHtml(value: string) {
   return value.replace(/[&<>'"]/g, (char) => replacements[char] ?? char)
 }
 </script>
+
+<style scoped>
+.map-provider-list {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.map-open-modal {
+  max-width: 520px;
+}
+</style>

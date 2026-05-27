@@ -8,9 +8,12 @@
       <button class="button small secondary" @click="load">Обновить</button>
     </div>
 
-    <div v-if="preselectedLocation" class="success inline-notice compact-notice">
-      Расход будет привязан к точке: <strong>{{ preselectedLocation.name }}</strong>
-      <span v-if="preselectedLocation.route_title"> · {{ preselectedLocation.route_title }}</span>
+    <div v-if="preselectedLocation" class="success inline-notice compact-notice location-binding-notice">
+      <span>
+        Расход будет привязан к точке: <strong>{{ preselectedLocation.name }}</strong>
+        <span v-if="preselectedLocation.route_title"> · {{ preselectedLocation.route_title }}</span>
+      </span>
+      <button type="button" class="button tiny secondary" @click="clearPreselectedLocation">Очистить</button>
     </div>
 
     <div v-if="summary" class="summary-grid compact-summary">
@@ -32,11 +35,18 @@
       </div>
     </div>
 
+    <div v-if="editingExpenseId" class="expense-edit-backdrop" @click.self="cancelEdit"></div>
+
     <div class="expense-layout expense-dashboard">
-      <form v-if="canEdit" class="form compact expense-form wide-form expense-form-pro" @submit.prevent="createExpense">
+      <form
+        v-if="canEdit"
+        :class="['form compact expense-form wide-form expense-form-pro', { 'expense-edit-modal': editingExpenseId }]"
+        @submit.prevent="saveExpense"
+      >
         <div class="form-title-row">
-          <h3>Добавить расход</h3>
+          <h3>{{ editingExpenseId ? 'Редактировать расход' : 'Добавить расход' }}</h3>
           <span class="badge">{{ form.route_id ? 'Расход маршрута' : 'Общий расход' }}</span>
+          <button v-if="editingExpenseId" type="button" class="button tiny secondary" @click="cancelEdit">Отменить</button>
         </div>
 
         <div class="expense-form-grid">
@@ -118,7 +128,7 @@
 
         <div class="expense-submit-row">
           <p class="hint">Проверьте сумму оплат и распределения: обе суммы должны совпадать с общим расходом.</p>
-          <button class="button full compact-submit" :disabled="saving">{{ saving ? 'Сохраняем...' : 'Добавить расход' }}</button>
+          <button class="button full compact-submit" :disabled="saving">{{ saving ? 'Сохраняем...' : (editingExpenseId ? 'Сохранить изменения' : 'Добавить расход') }}</button>
         </div>
       </form>
       <div v-else class="subcard">
@@ -195,6 +205,12 @@
         <small v-if="expense.expense_at">Время: {{ formatVisitShort(expense.expense_at) }}</small>
         <small>Оплатили: {{ expense.payments.map((p) => `${p.display_name || nameById(p.user_id)} — ${money(p.amount, expense.currency)}`).join(', ') }}</small>
         <small>Доли: {{ expense.shares.map((p) => `${p.display_name || nameById(p.user_id)} — ${money(p.amount, expense.currency)}`).join(', ') }}</small>
+        <div v-if="canEdit" class="actions expense-actions">
+          <button type="button" class="button tiny secondary" @click="startEditExpense(expense)">Редактировать</button>
+          <button type="button" class="button tiny secondary" :disabled="deletingExpenseId === expense.id" @click="deleteExpense(expense)">
+            {{ deletingExpenseId === expense.id ? 'Удаляем...' : 'Удалить' }}
+          </button>
+        </div>
       </article>
     </details>
 
@@ -213,6 +229,29 @@
           </p>
         </div>
         <p v-else class="empty">По этому участнику нет переводов.</p>
+
+        <div class="participant-expense-history">
+          <h3>История участия в расходах</h3>
+          <p class="muted">Расходы, где участник платил или входил в распределение.</p>
+          <div v-if="participantExpenseHistory(detailsParticipant.user_id).length" class="history-list">
+            <article v-for="expense in participantExpenseHistory(detailsParticipant.user_id)" :key="expense.id" class="history-item">
+              <div>
+                <strong>{{ expense.description }}</strong>
+                <small>{{ expense.route_title || 'Общий расход поездки' }}<span v-if="expense.location_name"> · {{ expense.location_name }}</span></small>
+                <small v-if="expense.expense_at">{{ formatVisitShort(expense.expense_at) }}</small>
+              </div>
+              <div class="history-money">
+                <span>Оплатил: <strong>{{ money(participantPaymentAmount(expense, detailsParticipant.user_id), expense.currency) }}</strong></span>
+                <span>Его доля: <strong>{{ money(participantShareAmount(expense, detailsParticipant.user_id), expense.currency) }}</strong></span>
+                <span :class="participantExpenseNet(expense, detailsParticipant.user_id) >= 0 ? 'positive-text' : 'negative-text'">
+                  Итог по записи: <strong>{{ money(participantExpenseNet(expense, detailsParticipant.user_id), expense.currency) }}</strong>
+                </span>
+              </div>
+            </article>
+          </div>
+          <p v-else class="empty">Участник пока не участвовал ни в одном расходе.</p>
+        </div>
+
         <div class="actions right">
           <button type="button" class="button secondary" @click="detailsParticipant = null">Закрыть</button>
         </div>
@@ -224,7 +263,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { http } from '../api/http'
-import type { ExpenseParticipantSummary, ExpensesSummary, LocationPoint, TripMember, TripRoute } from '../types'
+import type { Expense, ExpenseParticipantSummary, ExpensesSummary, LocationPoint, TripMember, TripRoute } from '../types'
 
 interface MoneyRow {
   user_id: string
@@ -243,17 +282,23 @@ const props = defineProps<{
   canEdit: boolean
   preselectedLocationId?: string | null
 }>()
-const emit = defineEmits<{ created: [] }>()
+const emit = defineEmits<{ created: []; clearPreselectedLocation: [] }>()
 
 const summary = ref<ExpensesSummary | null>(null)
 const saving = ref(false)
+const deletingExpenseId = ref<string | null>(null)
+const editingExpenseId = ref<string | null>(null)
 const error = ref('')
 const detailsParticipant = ref<ExpenseParticipantSummary | null>(null)
+const clearedPreselectedLocationId = ref<string | null>(null)
 const form = reactive({ description: '', amount: 0, route_id: '', location_id: '', expense_at: '', split_mode: 'equal' as 'equal' | 'manual' })
 const paymentRows = ref<MoneyRow[]>([])
 const shareRows = ref<MoneyRow[]>([])
 const sortedRoutes = computed(() => [...props.routes].sort(compareRoutes))
-const preselectedLocation = computed(() => props.preselectedLocationId ? props.locations.find((location) => location.id === props.preselectedLocationId) || null : null)
+const preselectedLocation = computed(() => {
+  if (!props.preselectedLocationId || props.preselectedLocationId === clearedPreselectedLocationId.value) return null
+  return props.locations.find((location) => location.id === props.preselectedLocationId) || null
+})
 const availableLocations = computed(() => {
   if (!form.route_id) return props.locations.filter((location) => !location.route_id).sort(compareLocations)
   return props.locations.filter((location) => location.route_id === form.route_id).sort(compareLocations)
@@ -288,34 +333,93 @@ function validateForm() {
   return ''
 }
 
-async function createExpense() {
+function buildExpensePayload() {
+  return {
+    description: form.description.trim(),
+    amount: roundMoney(form.amount),
+    currency: 'RUB',
+    split_mode: form.split_mode,
+    payments: selectedPayments(),
+    shares: selectedShares(),
+    route_id: form.route_id || null,
+    location_id: form.location_id || null,
+    expense_at: form.expense_at ? new Date(form.expense_at).toISOString() : null
+  }
+}
+
+async function saveExpense() {
   recalculateShares()
   error.value = validateForm()
   if (error.value) return
   saving.value = true
   try {
-    await http.post(`/trips/${props.tripId}/expenses`, {
-      description: form.description.trim(),
-      amount: roundMoney(form.amount),
-      currency: 'RUB',
-      split_mode: form.split_mode,
-      payments: selectedPayments(),
-      shares: selectedShares(),
-      route_id: form.route_id || null,
-      location_id: form.location_id || null,
-      expense_at: form.expense_at ? new Date(form.expense_at).toISOString() : null
-    })
-    form.description = ''
-    form.amount = 0
-    form.location_id = ''
-    form.expense_at = ''
-    initializeRows()
+    if (editingExpenseId.value) {
+      await http.put(`/trips/${props.tripId}/expenses/${editingExpenseId.value}`, buildExpensePayload())
+    } else {
+      await http.post(`/trips/${props.tripId}/expenses`, buildExpensePayload())
+    }
+    resetForm()
     await load()
     emit('created')
   } catch (e: any) {
-    error.value = formatApiError(e, 'Не удалось добавить расход')
+    error.value = formatApiError(e, editingExpenseId.value ? 'Не удалось обновить расход' : 'Не удалось добавить расход')
   } finally {
     saving.value = false
+  }
+}
+
+function startEditExpense(expense: Expense) {
+  editingExpenseId.value = expense.id
+  error.value = ''
+  form.description = expense.description
+  form.amount = roundMoney(expense.amount)
+  form.route_id = expense.route_id || ''
+  form.location_id = expense.location_id || ''
+  form.expense_at = expense.expense_at ? toDateTimeLocal(expense.expense_at) : ''
+  form.split_mode = expense.split_mode === 'manual' ? 'manual' : 'equal'
+
+  const paymentsByUser = new Map(expense.payments.map((payment) => [payment.user_id, payment.amount]))
+  const sharesByUser = new Map(expense.shares.map((share) => [share.user_id, share.amount]))
+  paymentRows.value = props.members.map((member) => {
+    const amount = roundMoney(paymentsByUser.get(member.user_id) || 0)
+    return { user_id: member.user_id, name: member.display_name, enabled: amount > 0, amount }
+  })
+  shareRows.value = props.members.map((member) => {
+    const amount = roundMoney(sharesByUser.get(member.user_id) || 0)
+    return { user_id: member.user_id, name: member.display_name, enabled: amount > 0, amount }
+  })
+  if (form.split_mode === 'equal') recalculateShares()
+}
+
+function cancelEdit() {
+  resetForm()
+}
+
+function resetForm() {
+  editingExpenseId.value = null
+  form.description = ''
+  form.amount = 0
+  form.route_id = props.selectedRouteId !== 'all' ? props.selectedRouteId : ''
+  form.location_id = ''
+  form.expense_at = ''
+  paymentRows.value = []
+  shareRows.value = []
+  initializeRows()
+}
+
+async function deleteExpense(expense: Expense) {
+  if (!window.confirm(`Удалить расход «${expense.description}»?`)) return
+  deletingExpenseId.value = expense.id
+  error.value = ''
+  try {
+    await http.delete(`/trips/${props.tripId}/expenses/${expense.id}`)
+    if (editingExpenseId.value === expense.id) resetForm()
+    await load()
+    emit('created')
+  } catch (e: any) {
+    error.value = formatApiError(e, 'Не удалось удалить расход')
+  } finally {
+    deletingExpenseId.value = null
   }
 }
 
@@ -402,7 +506,23 @@ function handleLocationChanged() {
   if (!form.description.trim()) form.description = `Расход по точке: ${location.name}`
 }
 
+function clearPreselectedLocation() {
+  const location = preselectedLocation.value
+  if (location) {
+    clearedPreselectedLocationId.value = location.id
+    if (form.description.trim() === `Расход по точке: ${location.name}`) form.description = ''
+  } else if (props.preselectedLocationId) {
+    clearedPreselectedLocationId.value = props.preselectedLocationId
+  }
+  form.location_id = ''
+  form.route_id = props.selectedRouteId !== 'all' ? props.selectedRouteId : ''
+  emit('clearPreselectedLocation')
+}
+
 function applyPreselectedLocation() {
+  if (props.preselectedLocationId && props.preselectedLocationId !== clearedPreselectedLocationId.value) {
+    clearedPreselectedLocationId.value = null
+  }
   const location = preselectedLocation.value
   if (!location) return
   form.location_id = location.id
@@ -421,6 +541,26 @@ function openDebtDetails(participant: ExpenseParticipantSummary) {
 
 function participantSettlements(userID: string) {
   return summary.value?.settlements.filter((s) => s.from_user_id === userID || s.to_user_id === userID) || []
+}
+
+function participantExpenseHistory(userID: string) {
+  return (summary.value?.expenses || []).filter((expense) => {
+    return expense.payments.some((payment) => payment.user_id === userID) ||
+      expense.shares.some((share) => share.user_id === userID) ||
+      expense.split_with?.includes(userID)
+  })
+}
+
+function participantPaymentAmount(expense: Expense, userID: string) {
+  return roundMoney(expense.payments.find((payment) => payment.user_id === userID)?.amount || 0)
+}
+
+function participantShareAmount(expense: Expense, userID: string) {
+  return roundMoney(expense.shares.find((share) => share.user_id === userID)?.amount || 0)
+}
+
+function participantExpenseNet(expense: Expense, userID: string) {
+  return roundMoney(participantPaymentAmount(expense, userID) - participantShareAmount(expense, userID))
 }
 
 function balanceLabel(value: number, currency = 'RUB') {
@@ -508,3 +648,103 @@ watch(() => props.selectedRouteId, applySelectedRoute, { immediate: true })
 watch(() => props.reloadKey, load)
 onMounted(load)
 </script>
+
+
+<style scoped>
+.expense-edit-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(2px);
+}
+
+.expense-edit-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1001;
+  width: min(1100px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  transform: translate(-50%, -50%);
+  overflow: auto;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.34);
+}
+
+.expense-edit-modal .form-title-row {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: inherit;
+  padding-top: 2px;
+}
+
+.location-binding-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.participant-expense-history {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.history-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.history-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.82);
+}
+
+.history-item small,
+.history-money span {
+  display: block;
+}
+
+.history-money {
+  min-width: 190px;
+  text-align: right;
+}
+
+.positive-text {
+  color: #047857;
+}
+
+.negative-text {
+  color: #b91c1c;
+}
+
+@media (max-width: 760px) {
+  .expense-edit-modal {
+    width: calc(100vw - 18px);
+    max-height: calc(100vh - 18px);
+  }
+
+  .location-binding-notice,
+  .history-item {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .location-binding-notice {
+    flex-direction: column;
+  }
+
+  .history-money {
+    min-width: 0;
+    text-align: left;
+  }
+}
+</style>

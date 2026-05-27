@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 
 	appmiddleware "travel-collab/backend/internal/middleware"
 	"travel-collab/backend/internal/models"
@@ -74,6 +75,62 @@ func (s *Server) handleCreateExpense(w http.ResponseWriter, r *http.Request) {
 	summary, _ := s.store.GetExpensesSummary(r.Context(), tripID)
 	s.hub.Broadcast(tripID, models.WSEvent{Type: "EXPENSE_ADDED", Payload: map[string]interface{}{"expense": expense, "summary": summary}})
 	writeJSON(w, http.StatusCreated, expense)
+}
+
+func (s *Server) handleUpdateExpense(w http.ResponseWriter, r *http.Request) {
+	tripID := chi.URLParam(r, "trip_id")
+	expenseID := chi.URLParam(r, "expense_id")
+	userID, _ := appmiddleware.UserIDFromContext(r.Context())
+	if _, ok := s.ensureTripRole(w, r, tripID, userID, "owner", "editor"); !ok {
+		return
+	}
+
+	var req createExpenseRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+
+	normalized, ok := s.normalizeAndValidateExpense(w, r, tripID, req)
+	if !ok {
+		return
+	}
+
+	expense, err := s.store.UpdateExpense(r.Context(), tripID, expenseID, normalized.Description, normalized.Amount, normalized.Currency, normalized.Payments, normalized.Shares, normalized.SplitMode, normalized.RouteID, normalized.LocationID, normalized.ExpenseAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			writeError(w, http.StatusNotFound, "Расход не найден")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to update expense")
+		return
+	}
+
+	summary, _ := s.store.GetExpensesSummary(r.Context(), tripID)
+	s.hub.Broadcast(tripID, models.WSEvent{Type: "EXPENSE_UPDATED", Payload: map[string]interface{}{"expense": expense, "summary": summary}})
+	writeJSON(w, http.StatusOK, expense)
+}
+
+func (s *Server) handleDeleteExpense(w http.ResponseWriter, r *http.Request) {
+	tripID := chi.URLParam(r, "trip_id")
+	expenseID := chi.URLParam(r, "expense_id")
+	userID, _ := appmiddleware.UserIDFromContext(r.Context())
+	if _, ok := s.ensureTripRole(w, r, tripID, userID, "owner", "editor"); !ok {
+		return
+	}
+
+	if err := s.store.DeleteExpense(r.Context(), tripID, expenseID); err != nil {
+		if err == pgx.ErrNoRows {
+			writeError(w, http.StatusNotFound, "Расход не найден")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to delete expense")
+		return
+	}
+
+	summary, _ := s.store.GetExpensesSummary(r.Context(), tripID)
+	s.hub.Broadcast(tripID, models.WSEvent{Type: "EXPENSE_DELETED", Payload: map[string]interface{}{"id": expenseID, "summary": summary}})
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 type normalizedExpense struct {

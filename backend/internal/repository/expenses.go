@@ -6,6 +6,8 @@ import (
 	"math"
 	"sort"
 
+	"github.com/jackc/pgx/v5"
+
 	"travel-collab/backend/internal/models"
 )
 
@@ -58,6 +60,83 @@ func (s *Store) CreateExpense(ctx context.Context, tripID, description string, a
 		}
 	}
 	return e, nil
+}
+
+func (s *Store) UpdateExpense(ctx context.Context, tripID, expenseID, description string, amount float64, currency string, payments []models.ExpensePayment, shares []models.ExpenseShare, splitMode string, routeID *string, locationID *string, expenseAt any) (models.Expense, error) {
+	paymentsBytes, err := json.Marshal(payments)
+	if err != nil {
+		return models.Expense{}, err
+	}
+	sharesBytes, err := json.Marshal(shares)
+	if err != nil {
+		return models.Expense{}, err
+	}
+	splitWith := make([]string, 0, len(shares))
+	for _, share := range shares {
+		splitWith = append(splitWith, share.UserID)
+	}
+	splitBytes, err := json.Marshal(splitWith)
+	if err != nil {
+		return models.Expense{}, err
+	}
+	paidBy := ""
+	if len(payments) > 0 {
+		paidBy = payments[0].UserID
+	}
+	var routeParam any
+	if routeID != nil {
+		routeParam = *routeID
+	}
+	var locationParam any
+	if locationID != nil {
+		locationParam = *locationID
+	}
+
+	var updatedID string
+	err = s.DB.QueryRow(ctx, `
+		UPDATE expenses
+		SET description = $3,
+		    amount = $4,
+		    currency = $5,
+		    paid_by = $6,
+		    split_with = $7::jsonb,
+		    location_id = $8,
+		    route_id = $9,
+		    expense_at = $10,
+		    payments = $11::jsonb,
+		    shares = $12::jsonb,
+		    split_mode = $13
+		WHERE trip_id = $1 AND id = $2
+		RETURNING id
+	`, tripID, expenseID, description, amount, currency, paidBy, string(splitBytes), locationParam, routeParam, expenseAt, string(paymentsBytes), string(sharesBytes), splitMode).Scan(&updatedID)
+	if err != nil {
+		return models.Expense{}, err
+	}
+
+	expenses, err := s.ListExpenses(ctx, tripID)
+	if err != nil {
+		return models.Expense{}, err
+	}
+	for _, item := range expenses {
+		if item.ID == updatedID {
+			return item, nil
+		}
+	}
+	return models.Expense{}, pgx.ErrNoRows
+}
+
+func (s *Store) DeleteExpense(ctx context.Context, tripID, expenseID string) error {
+	ct, err := s.DB.Exec(ctx, `
+		DELETE FROM expenses
+		WHERE trip_id = $1 AND id = $2
+	`, tripID, expenseID)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (s *Store) ListExpenses(ctx context.Context, tripID string) ([]models.Expense, error) {
