@@ -6,16 +6,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 
+	"travel-collab/backend/internal/config"
 	"travel-collab/backend/internal/ws"
 )
-
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
 
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	tripID := chi.URLParam(r, "trip_id")
@@ -38,6 +31,15 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "you are not a member of this trip")
 		return
 	}
+
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return isWebSocketOriginAllowed(s.cfg, r)
+		},
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
@@ -53,4 +55,9 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	s.hub.Register(client)
 	go client.WritePump()
 	go client.ReadPump()
+}
+
+func isWebSocketOriginAllowed(cfg config.Config, r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	return origin == "" || cfg.IsOriginAllowed(origin)
 }

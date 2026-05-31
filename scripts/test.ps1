@@ -1,3 +1,7 @@
+param(
+    [switch]$SkipFrontendInstall
+)
+
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $PSScriptRoot
@@ -10,24 +14,45 @@ function Run-Step($Title, $ScriptBlock) {
     & $ScriptBlock
 }
 
-Write-Host "Travel-Collab verification" -ForegroundColor Green
-Write-Host "Project root: $Root"
+$OriginalLocation = Get-Location
+try {
+    Write-Host "Travel-Collab verification" -ForegroundColor Green
+    Write-Host "Project root: $Root"
 
-Run-Step "Running backend Go tests..." {
-    Set-Location $Backend
-    go test ./...
+    Run-Step "Running backend Go tests..." {
+        Push-Location $Backend
+        try {
+            go test ./...
+        } finally {
+            Pop-Location
+        }
+    }
+
+    if (-not $SkipFrontendInstall) {
+        Run-Step "Installing frontend dependencies with npm ci..." {
+            Push-Location $Frontend
+            try {
+                npm ci
+            } finally {
+                Pop-Location
+            }
+        }
+    } else {
+        Write-Host ""
+        Write-Host "Skipping frontend dependency installation." -ForegroundColor Yellow
+    }
+
+    Run-Step "Building frontend..." {
+        Push-Location $Frontend
+        try {
+            npm run build
+        } finally {
+            Pop-Location
+        }
+    }
+
+    Write-Host ""
+    Write-Host "All checks passed." -ForegroundColor Green
+} finally {
+    Set-Location $OriginalLocation
 }
-
-Run-Step "Installing frontend dependencies..." {
-    Set-Location $Frontend
-    npm install
-}
-
-Run-Step "Building frontend..." {
-    Set-Location $Frontend
-    npm run build
-}
-
-Set-Location $Root
-Write-Host ""
-Write-Host "All checks passed." -ForegroundColor Green

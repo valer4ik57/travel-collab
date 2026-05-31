@@ -1,0 +1,8 @@
+{$TRAVEL_COLLAB_SITE_ADDRESS::80} {
+    encode zstd gzip
+
+    @backend path /api/* /health
+    reverse_proxy @backend backend:8080
+
+    reverse_proxy frontend:80
+}

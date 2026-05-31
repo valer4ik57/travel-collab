@@ -39,18 +39,21 @@ func (s *Server) routes() http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
-	r.Use(appmiddleware.CORS(s.cfg.FrontendURL, s.cfg.FrontendURLs))
+	r.Use(middleware.RequestSize(s.cfg.MaxRequestBodyBytes))
+	r.Use(appmiddleware.CORS(s.cfg))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
+	authLimiter := appmiddleware.NewRateLimiter(s.cfg.AuthRateLimitRequests, s.cfg.AuthRateLimitWindow)
+
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "service": "travel-collab-backend"})
 		})
-		r.Post("/auth/register", s.handleRegister)
-		r.Post("/auth/login", s.handleLogin)
+		r.With(authLimiter.Middleware).Post("/auth/register", s.handleRegister)
+		r.With(authLimiter.Middleware).Post("/auth/login", s.handleLogin)
 		r.Get("/auth/github", s.handleGitHubStart)
 		r.Get("/auth/github/callback", s.handleGitHubCallback)
 		r.Get("/ws/{trip_id}", s.handleWebSocket)
