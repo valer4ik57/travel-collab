@@ -1,14 +1,23 @@
-# Android-приложение Travel-Collab через Capacitor
+# Android APK через Capacitor
 
-Android-версия собирается из того же Vue/Vite frontend, что и web-версия. Внутри APK работает WebView, а данные загружаются с Go backend, запущенного на компьютере в локальной сети.
+Android-версия собирается из того же Vue/Vite frontend, что и web-версия. Внутри APK работает WebView с собранными статическими файлами, а данные уходят на публичный backend Travel-Collab.
 
-## Что нужно установить на компьютер
+Production-сценарий:
+
+```text
+APK → https://travel-collab.ru/api/v1
+APK → wss://travel-collab.ru/api/v1/ws
+```
+
+То есть сайт и APK используют одну базу, одни аккаунты, одни поездки, один чат и один backend.
+
+## Что нужно установить
 
 - Node.js и npm;
 - Android Studio;
 - Android SDK Platform-Tools;
 - Android SDK Build-Tools;
-- Android SDK Platform API 35;
+- Android SDK Platform API 35 или новее;
 - переменную окружения `ANDROID_HOME`.
 
 Пример `ANDROID_HOME`:
@@ -17,7 +26,7 @@ Android-версия собирается из того же Vue/Vite frontend, 
 C:\Users\valer\AppData\Local\Android\Sdk
 ```
 
-Проверка:
+Проверка в PowerShell или cmd:
 
 ```cmd
 adb version
@@ -25,96 +34,102 @@ echo %ANDROID_HOME%
 where adb
 ```
 
-На телефон ничего дополнительного ставить не нужно, кроме готового APK.
+## Важная настройка сервера
 
-## Подготовка сети
+Capacitor APK открывает встроенный frontend с origin `https://localhost`. Поэтому production backend должен разрешать этот origin в CORS и WebSocket Origin check.
 
-Компьютер и телефон должны быть в одной локальной сети. Компьютер может быть подключён к роутеру по Ethernet, а телефон — по Wi-Fi.
+В `.env.production` на сервере в `FRONTEND_URLS` должны быть домен сайта и мобильные origins:
 
-Узнать IP компьютера:
-
-```cmd
-ipconfig
+```env
+FRONTEND_URLS=https://travel-collab.ru,https://www.travel-collab.ru,https://localhost,http://localhost,capacitor://localhost
 ```
 
-Нужен IPv4 активного адаптера, например:
+После изменения `.env.production`:
 
-```text
-192.168.1.166
+```bash
+cd /opt/travel-collab
+docker compose --env-file .env.production -f docker-compose.prod.yml up --build -d
 ```
 
-## Сборка APK
+Базу удалять не нужно. Не используй `down -v`.
 
-Сначала запусти backend и frontend обычным способом из корня проекта:
+## Сборка production APK
 
-```powershell
-.\scripts\dev.ps1
-```
-
-Потом в отдельном PowerShell:
+Из папки frontend:
 
 ```powershell
 cd C:\Users\valer\GolandProjects\travel-collab\frontend
-powershell -ExecutionPolicy Bypass -File .\scripts\mobile-build.ps1 -BackendHost 192.168.1.166
+powershell -ExecutionPolicy Bypass -File .\scripts\mobile-build.ps1
 ```
 
-Скрипт выполнит:
-
-1. установку npm-зависимостей;
-2. сборку frontend через Vite;
-3. синхронизацию Capacitor;
-4. сборку debug APK через Gradle.
-
-Готовый APK:
+По умолчанию скрипт собирает APK под production API:
 
 ```text
-frontend/android/app/build/outputs/apk/debug/app-debug.apk
+https://travel-collab.ru/api/v1
+wss://travel-collab.ru/api/v1/ws
 ```
 
-## Установка APK на телефон
+Готовый файл:
 
-1. Перекинь `app-debug.apk` на телефон.
-2. Открой APK через файловый менеджер, браузер или мессенджер.
-3. Разреши установку из неизвестных источников для выбранного приложения.
-4. Установи Travel-Collab.
+```text
+frontend\android\app\build\outputs\apk\debug\app-debug.apk
+```
+
+## Сборка и установка сразу на телефон
+
+1. Включи на телефоне режим разработчика.
+2. Включи USB debugging.
+3. Подключи телефон по USB.
+4. Подтверди RSA-запрос на телефоне.
+5. Проверь, что телефон виден:
+
+```powershell
+adb devices
+```
+
+Потом:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\mobile-build.ps1 -Install
+```
+
+## Локальная сборка для разработки
+
+Если нужно собрать APK под локальный backend в одной Wi-Fi сети:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\mobile-build.ps1 -Mode Local -BackendHost 192.168.1.166
+```
+
+Если `-BackendHost` не указать, скрипт попробует найти локальный IP сам.
 
 ## Что проверить после установки
 
-- вход по email/паролю;
+- запуск приложения без налезания верхней панели на системную шторку Android;
+- вход по аккаунту, который уже работает на сайте;
 - список поездок;
-- открытие поездки;
+- создание поездки;
+- вступление по invite-коду;
 - карта и точки;
-- маршруты и drag-and-drop порядка точек;
-- открытие маршрута в 2ГИС;
-- расходы и расчёт балансов;
-- чат;
-- WebSocket-синхронизация;
-- отсутствие налезания интерфейса на системную шторку Android.
+- маршруты и порядок точек;
+- расходы и балансы;
+- чат между APK, браузером на телефоне и браузером на компьютере.
 
 ## Частые проблемы
 
 ### APK открывается, но данные не загружаются
 
-Проверь:
+Проверь на сервере `FRONTEND_URLS`. Для APK нужен origin `https://localhost`.
 
-- backend запущен;
-- APK собран с правильным `-BackendHost`;
-- телефон и компьютер находятся в одной сети;
-- Windows Firewall не блокирует порт `8080`.
+### Чат не работает, хотя REST-запросы работают
 
-### Телефон не открывает web-версию
+Почти всегда причина в WebSocket Origin check. Добавь в `FRONTEND_URLS`:
 
-Открывай frontend, а не backend:
-
-```text
-http://192.168.1.166:5173
+```env
+https://localhost,http://localhost,capacitor://localhost
 ```
 
-Backend напрямую проверяется через:
-
-```text
-http://192.168.1.166:8080/api/v1/health
-```
+После этого перезапусти compose без удаления базы.
 
 ### `JAVA_HOME is not set`
 
@@ -125,26 +140,10 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 ```
 
-### Не установлен Android SDK Platform 35
-
-Открой Android Studio:
-
-```text
-Tools → SDK Manager → SDK Platforms
-```
-
-Установи обычный:
-
-```text
-Android 15.0 / API 35
-```
-
-Не обязательно выбирать `35-ext...`.
-
 ### PowerShell запрещает запуск `.ps1`
 
 Используй запуск с `ExecutionPolicy Bypass`:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\mobile-build.ps1 -BackendHost 192.168.1.166
+powershell -ExecutionPolicy Bypass -File .\scripts\mobile-build.ps1
 ```

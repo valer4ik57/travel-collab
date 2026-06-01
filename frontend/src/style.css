@@ -1634,3 +1634,44 @@ body.capacitor-native-shell.trip-mobile-shell {
   margin: 0;
   text-align: center;
 }
+
+/* v0.6.1 Android/Capacitor safe-area without breaking page scroll */
+html.capacitor-native-root,
+html.capacitor-native-root body,
+html.capacitor-native-root #app,
+html.capacitor-native-root .app-shell {
+  min-height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+html.capacitor-native-root body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+@media (max-width: 760px) {
+  body.capacitor-native-shell:not(.trip-mobile-shell) .topbar {
+    padding-top: 18px;
+  }
+
+  body.capacitor-native-shell:not(.trip-mobile-shell) main {
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+
+  body.capacitor-native-shell .auth-page.narrow {
+    margin-top: 12px;
+  }
+
+  body.capacitor-native-shell .page-grid,
+  body.capacitor-native-shell .features-grid {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  body.capacitor-native-shell .mobile-side-menu {
+    height: 100dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}

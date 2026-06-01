@@ -10,6 +10,7 @@ import router from './router'
 async function prepareNativeShell() {
   if (!Capacitor.isNativePlatform()) return
 
+  document.documentElement.classList.add('capacitor-native-root')
   document.body.classList.add('capacitor-native-shell')
 
   try {

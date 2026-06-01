@@ -1,6 +1,14 @@
 param(
+    [ValidateSet("Production", "Local", "Custom")]
+    [string]$Mode = "Production",
+
     [string]$BackendHost = "",
-    [string]$BackendPort = "8080"
+    [string]$BackendPort = "8080",
+
+    [string]$ApiBaseUrl = "https://travel-collab.ru/api/v1",
+    [string]$WsBaseUrl = "wss://travel-collab.ru/api/v1/ws",
+
+    [switch]$Install
 )
 
 $ErrorActionPreference = "Stop"
@@ -99,23 +107,35 @@ function Get-LocalBackendHost {
     return ""
 }
 
-if (-not $BackendHost) {
-    $BackendHost = Get-LocalBackendHost
+if ($Mode -eq "Local") {
+    if (-not $BackendHost) {
+        $BackendHost = Get-LocalBackendHost
+    }
+
+    if (-not $BackendHost) {
+        Write-Host "Could not detect local IP automatically." -ForegroundColor Red
+        Write-Host "Run for example: powershell -ExecutionPolicy Bypass -File .\scripts\mobile-build.ps1 -Mode Local -BackendHost 192.168.1.166" -ForegroundColor Yellow
+        exit 1
+    }
+
+    $ApiBaseUrl = "http://${BackendHost}:${BackendPort}/api/v1"
+    $WsBaseUrl = "ws://${BackendHost}:${BackendPort}/api/v1/ws"
 }
 
-if (-not $BackendHost) {
-    Write-Host "Could not detect local IP automatically." -ForegroundColor Red
-    Write-Host "Run for example: powershell -ExecutionPolicy Bypass -File .\scripts\mobile-build.ps1 -BackendHost 192.168.1.166" -ForegroundColor Yellow
-    exit 1
+if ($Mode -eq "Custom") {
+    if (-not $ApiBaseUrl -or -not $WsBaseUrl) {
+        throw "For -Mode Custom set both -ApiBaseUrl and -WsBaseUrl."
+    }
 }
 
 Ensure-AndroidSdk
 Ensure-Java
 
-$env:VITE_API_BASE_URL = "http://${BackendHost}:${BackendPort}/api/v1"
-$env:VITE_WS_BASE_URL = "ws://${BackendHost}:${BackendPort}/api/v1/ws"
+$env:VITE_API_BASE_URL = $ApiBaseUrl.TrimEnd('/')
+$env:VITE_WS_BASE_URL = $WsBaseUrl.TrimEnd('/')
 
 Write-Host "Travel-Collab Android build" -ForegroundColor Cyan
+Write-Host "Mode:        $Mode" -ForegroundColor Yellow
 Write-Host "Backend API: $env:VITE_API_BASE_URL" -ForegroundColor Yellow
 Write-Host "Backend WS:  $env:VITE_WS_BASE_URL" -ForegroundColor Yellow
 Write-Host "Android SDK: $env:ANDROID_HOME" -ForegroundColor Gray
@@ -123,7 +143,11 @@ Write-Host "JAVA_HOME:   $env:JAVA_HOME" -ForegroundColor Gray
 Write-Host ""
 
 Write-Host "Installing frontend and Capacitor dependencies..." -ForegroundColor Cyan
-Invoke-Checked npm install
+if (Test-Path "package-lock.json") {
+    Invoke-Checked npm ci
+} else {
+    Invoke-Checked npm install
+}
 
 Write-Host "Building web assets for mobile..." -ForegroundColor Cyan
 Invoke-Checked npm run build
@@ -150,7 +174,14 @@ if (Test-Path $apk) {
     Write-Host "APK built successfully:" -ForegroundColor Green
     Write-Host $apk -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "Install this APK on your phone. Phone and PC must be in the same router network." -ForegroundColor Gray
+
+    if ($Install) {
+        Write-Host "Installing APK to connected Android device..." -ForegroundColor Cyan
+        Invoke-Checked adb install -r $apk
+        Write-Host "APK installed." -ForegroundColor Green
+    } else {
+        Write-Host "Install it manually or run the script with -Install when the phone is connected through USB debugging." -ForegroundColor Gray
+    }
 } else {
     Write-Host "APK was not found after build. Check Gradle output above." -ForegroundColor Red
     exit 1
