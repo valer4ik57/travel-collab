@@ -1,350 +1,223 @@
 # Travel-Collab
 
-**Travel-Collab** — веб-сервис для совместного планирования поездок. Он помогает группе участников собрать маршрут, отметить точки на карте, вести общий чат, фиксировать расходы и видеть итоговые взаиморасчёты внутри поездки.
+Travel-Collab is a web service for collaborative trip planning. It combines trip members, routes, map points, shared expenses and real-time chat in one workspace.
 
-Публичная версия доступна по адресу: **https://travel-collab.ru**
+Live demo: **https://travel-collab.ru**
 
----
+## Purpose
 
-## Для чего нужен сервис
+The service is designed for small travel groups that need a shared place to organize a trip: invite participants, plan a route, discuss details and track shared expenses.
 
-Travel-Collab закрывает типичный сценарий групповой поездки: несколько человек планируют маршрут, договариваются по точкам посещения, что-то оплачивают за всех и хотят понимать, кто кому должен. Вместо отдельных чатов, заметок, карт и таблиц сервис объединяет основные действия в одном пространстве поездки.
+Typical use cases:
 
-Основные сценарии:
+- planning a group trip with several participants;
+- keeping route points and visit order in one place;
+- discussing trip details in a shared chat;
+- recording group expenses and seeing who owes whom;
+- separating access rights between owner, editor and viewer roles.
 
-- создание поездки и приглашение участников по invite-коду;
-- распределение прав между участниками поездки;
-- планирование маршрутов по дням;
-- добавление точек на интерактивную карту;
-- ручное изменение порядка точек в маршруте;
-- визуальное отображение линии маршрута между точками;
-- учёт расходов с одним или несколькими плательщиками;
-- деление расходов поровну или вручную;
-- расчёт балансов и упрощённых взаиморасчётов;
-- чат поездки с обновлениями в реальном времени.
+## Main features
 
-Сервис не является системой бронирования, платёжным шлюзом или навигационным приложением. Линия маршрута показывает порядок посещения точек, а не строит автомобильный или пешеходный маршрут по дорогам.
+### Trips and members
 
----
+- user registration and authentication;
+- trip creation;
+- invite-based trip joining;
+- member list;
+- role-based access model: `owner`, `editor`, `viewer`.
 
-## Функциональные возможности
+### Routes and map
 
-### Поездки и участники
+- map-based trip planning;
+- route entities inside a trip;
+- ordered locations for each route;
+- visual connection of route points;
+- manual point ordering.
 
-- регистрация и вход по email/паролю;
-- JWT-аутентификация;
-- создание поездки с названием, описанием и датами;
-- подключение к поездке по invite-коду;
-- роли участников: `owner`, `editor`, `viewer`;
-- выход из поездки и управление участниками;
-- проверка членства пользователя в поездке на уровне backend.
+The route line is used as a visual representation of the planned visit order. It is not a turn-by-turn navigation route.
 
-### Карта и маршруты
+### Shared expenses
 
-- интерактивная карта на базе Leaflet и OpenStreetMap;
-- создание нескольких маршрутов внутри одной поездки;
-- привязка точки к конкретному маршруту;
-- категории точек: достопримечательность, еда, отель, транспорт и другое;
-- ручной порядок точек через `route_order`;
-- drag-and-drop для изменения последовательности;
-- линия между точками маршрута;
-- открытие маршрута во внешнем картографическом сервисе.
+- expense creation inside a trip;
+- linking expenses to a trip, route or location;
+- several payers and participants per expense;
+- equal split and manual split modes;
+- balance calculation between trip members;
+- simplified settlement suggestions.
 
-### Расходы
+### Real-time chat
 
-- добавление расходов на уровне поездки, маршрута или отдельной точки;
-- поддержка нескольких плательщиков в одном расходе;
-- хранение оплат в `payments`;
-- хранение долей участников в `shares`;
-- режимы распределения `equal` и `manual`;
-- проверка, что сумма оплат и сумма долей совпадают с общей суммой расхода;
-- проверка принадлежности плательщиков, участников, маршрутов и точек выбранной поездке;
-- расчёт финансовой сводки по участникам;
-- построение списка переводов в формате «кто кому должен».
+- trip-level chat;
+- WebSocket-based real-time message delivery;
+- messages are isolated by trip;
+- only trip members can connect to the trip chat.
 
-### Чат и real-time
+## Technology stack
 
-- чат внутри каждой поездки;
-- WebSocket-подключение по `trip_id`;
-- изоляция событий между разными поездками;
-- моментальное появление сообщений у других участников;
-- real-time-обновления без перезагрузки страницы.
+### Backend
 
-### Web и mobile
+- Go
+- Chi router
+- pgx
+- PostgreSQL
+- PostGIS
+- Gorilla WebSocket
+- JWT authentication
+- bcrypt password hashing
 
-- адаптивный веб-интерфейс;
-- корректная работа с телефона через браузер;
-- Android-проект на базе Capacitor;
-- единый backend для web-версии и мобильного клиента.
+### Frontend
 
----
+- Vue 3
+- TypeScript
+- Vite
+- Pinia
+- Axios
+- Leaflet / OpenStreetMap
+- Capacitor for Android build
 
-## Технологический стек
+### Infrastructure
 
-| Зона | Технологии |
-|---|---|
-| Backend | Go, Chi, pgx, gorilla/websocket |
-| Frontend | Vue 3, TypeScript, Vite, Pinia, Axios |
-| Карта | Leaflet, OpenStreetMap |
-| База данных | PostgreSQL, PostGIS |
-| Авторизация | JWT, bcrypt |
-| Real-time | WebSocket |
-| Mobile | Capacitor, Android |
-| Production | Docker, Docker Compose, Caddy, Nginx |
-| CI | GitHub Actions |
+- Docker
+- Docker Compose
+- Caddy reverse proxy
+- GitHub Actions
 
----
-
-## Архитектура
-
-Проект построен по клиент-серверной архитектуре. Frontend отвечает за интерфейс, карту, формы, состояние приложения и работу с API. Backend содержит бизнес-логику, проверку доступа, обработчики REST API, WebSocket и слой работы с базой данных.
+## High-level architecture
 
 ```text
-Browser / Mobile Web / Android WebView
-        │
-        ├── HTTPS REST API
-        ├── WSS WebSocket
-        │
-Caddy reverse proxy
-        │
-        ├── Frontend container: Vue build + Nginx
-        └── Backend container: Go API
-                │
-                └── PostgreSQL + PostGIS
+Browser / Android WebView
+        |
+        | REST API + WebSocket
+        v
+Go backend
+        |
+        v
+PostgreSQL + PostGIS
 ```
 
-Основная идея архитектуры — привязка большинства сущностей к поездке. Пользователь получает доступ не напрямую ко всем данным, а через запись в `trip_members`. JWT определяет личность пользователя, а членство и роль в поездке определяют доступные действия.
+The frontend communicates with the backend through REST endpoints and a WebSocket connection. The backend contains the main business logic, validates user access and works with the database. PostgreSQL stores application data, while PostGIS is used for map-related location data.
 
----
+## Backend structure
 
-## Backend
+The backend is organized around several main layers:
 
-Backend написан на Go и разделён на несколько внутренних слоёв:
+- configuration loading and validation;
+- HTTP API handlers;
+- authentication and authorization middleware;
+- repository layer for database operations;
+- WebSocket hub for trip chat;
+- domain models for users, trips, members, routes, locations, expenses and messages.
+
+Main backend domains:
+
+- users and authentication;
+- trips and membership;
+- routes and locations;
+- expenses and balances;
+- messages and WebSocket chat.
+
+## Frontend structure
+
+The frontend is built as a Vue single-page application.
+
+Main interface areas:
+
+- authentication screens;
+- trip list;
+- trip workspace;
+- map and itinerary panels;
+- members panel;
+- expenses panel;
+- chat panel.
+
+State management is handled through Pinia stores. API calls are placed in a separate HTTP layer. Real-time trip updates are handled through a dedicated WebSocket composable.
+
+## Data model overview
+
+The core data model is centered around a trip.
 
 ```text
-backend/
-├── cmd/                 # точка входа приложения
-└── internal/
-    ├── api/             # HTTP/WebSocket handlers
-    ├── auth/            # JWT и работа с паролями
-    ├── config/          # конфигурация и production-проверки
-    ├── db/              # подключение к PostgreSQL и миграции
-    ├── middleware/      # auth, CORS, rate limiting, request limits
-    ├── models/          # структуры данных
-    ├── repository/      # SQL-запросы и бизнес-операции с БД
-    └── ws/              # WebSocket hub и клиенты
+users
+  |
+trip_members
+  |
+trips
+  |--- trip_routes
+  |       |
+  |       └── locations
+  |
+  |--- expenses
+  |
+  └── messages
 ```
 
-Ключевые backend-зоны:
+Important entities:
 
-- `api` принимает HTTP-запросы и преобразует их в операции приложения;
-- `repository` содержит работу с таблицами, проверку связей и расчёт расходов;
-- `middleware` отвечает за авторизацию, CORS, лимиты запросов и ограничения тела запроса;
-- `ws` хранит активные WebSocket-подключения и рассылает события внутри комнаты поездки.
+- `users` — registered users;
+- `trips` — shared trip workspaces;
+- `trip_members` — membership and roles;
+- `trip_routes` — route containers inside a trip;
+- `locations` — map points with ordering;
+- `expenses` — shared expenses;
+- `messages` — trip chat messages.
 
----
+## Security model
 
-## API
+The project includes several application-level security mechanisms:
 
-Основной префикс API: `/api/v1`.
+- password hashing with bcrypt;
+- JWT-based authentication;
+- role checks for trip operations;
+- server-side membership validation;
+- protected WebSocket connection;
+- CORS and Origin validation;
+- rate limiting for authentication endpoints;
+- request body size limits.
 
-| Группа | Endpoint-ы |
-|---|---|
-| Health | `GET /health`, `GET /api/v1/health` |
-| Auth | `POST /auth/register`, `POST /auth/login` |
-| User | `GET /me`, `PUT /me` |
-| Trips | `GET /trips`, `POST /trips`, `POST /trips/join`, `GET /trips/{trip_id}` |
-| Members | `POST /trips/{trip_id}/leave`, `PATCH /trips/{trip_id}/members/{user_id}`, `DELETE /trips/{trip_id}/members/{user_id}` |
-| Routes | `GET /trips/{trip_id}/routes`, `POST /trips/{trip_id}/routes`, `PUT /trips/{trip_id}/routes/{route_id}`, `DELETE /trips/{trip_id}/routes/{route_id}` |
-| Locations | `GET /trips/{trip_id}/locations`, `POST /trips/{trip_id}/locations`, `PUT /trips/{trip_id}/locations/{location_id}`, `DELETE /trips/{trip_id}/locations/{location_id}` |
-| Route order | `POST /trips/{trip_id}/routes/{route_id}/locations/reorder` |
-| Expenses | `GET /trips/{trip_id}/expenses`, `POST /trips/{trip_id}/expenses`, `PUT /trips/{trip_id}/expenses/{expense_id}`, `DELETE /trips/{trip_id}/expenses/{expense_id}` |
-| Messages | `GET /trips/{trip_id}/messages` |
-| WebSocket | `GET /ws/{trip_id}` |
+Authorization is based on trip membership. JWT identifies the user, while access to trip data is checked separately through `trip_members` and the user's role inside a specific trip.
 
-Защищённые endpoint-ы используют JWT. Для операций с данными поездки backend дополнительно проверяет наличие пользователя в `trip_members` и его роль.
+## Testing and CI
 
----
+The project includes automated checks for key backend logic and frontend build correctness.
 
-## Модель данных
+Covered areas include:
 
-Ключевые таблицы:
+- backend configuration validation;
+- authentication-related helpers;
+- request limiting behavior;
+- WebSocket origin checks;
+- expense calculation helpers;
+- frontend TypeScript and production build.
 
-| Таблица | Назначение |
-|---|---|
-| `users` | пользователи, данные профиля, email, хеш пароля |
-| `trips` | поездки, владелец, даты, invite-код |
-| `trip_members` | связь пользователей с поездками, роли и статус участия |
-| `trip_routes` | маршруты внутри поездки |
-| `locations` | точки на карте, координаты PostGIS, маршрут и порядок точки |
-| `expenses` | расходы, оплаты, доли, связь с маршрутом или точкой |
-| `messages` | сообщения чата внутри поездки |
+GitHub Actions are used to run backend tests and frontend build checks on repository updates.
 
-Особенности схемы:
+## Android build
 
-- координаты точек хранятся как `GEOMETRY(Point, 4326)`;
-- для координат используется GiST-индекс;
-- многие данные удаляются каскадно при удалении поездки;
-- роли участников ограничены значениями `owner`, `editor`, `viewer`;
-- расходы могут быть связаны с поездкой целиком, маршрутом или конкретной точкой;
-- `payments` и `shares` хранят структуру сложного расхода в JSONB.
+The frontend can also be packaged as an Android application through Capacitor. The Android build uses the same backend API and WebSocket endpoints as the web version, so users, trips, messages and expenses remain shared between web and mobile clients.
 
----
+## Current status
 
-## Логика расходов
+Implemented and tested:
 
-Модуль расходов поддерживает не только простой сценарий «один оплатил за всех», но и более гибкую модель:
+- authentication;
+- trip management;
+- invite-based joining;
+- roles inside trips;
+- route and map point management;
+- shared expenses;
+- balance calculation;
+- trip chat;
+- public web version;
+- Android build.
 
-```text
-expense.amount
-├── payments[]  # кто и сколько оплатил
-└── shares[]    # на кого и какая доля расхода приходится
-```
+## Roadmap
 
-При создании или обновлении расхода backend проверяет:
+Possible future improvements:
 
-- сумма расхода больше нуля;
-- есть хотя бы один плательщик;
-- есть хотя бы один участник распределения;
-- нет повторяющихся пользователей в оплатах и долях;
-- сумма `payments` равна общей сумме расхода;
-- сумма `shares` равна общей сумме расхода;
-- все участники расхода состоят в этой поездке;
-- выбранные маршрут и точка принадлежат этой же поездке.
-
-Баланс участника считается как разница между тем, сколько он оплатил, и тем, какая доля расходов на него приходится. После этого backend строит упрощённый список взаиморасчётов между должниками и кредиторами.
-
----
-
-## Безопасность
-
-В проекте реализованы базовые механизмы защиты для публичного web-сервиса:
-
-- хеширование паролей через bcrypt;
-- JWT-аутентификация;
-- проверка пользователя на уровне middleware;
-- проверка членства в поездке через `trip_members`;
-- разграничение действий по ролям;
-- CORS с явным списком разрешённых origin-ов;
-- WebSocket Origin check;
-- проверка JWT перед подключением к WebSocket;
-- запрет слабого `JWT_SECRET` в production-режиме;
-- rate limiting для login/register;
-- ограничение размера входящего JSON-запроса;
-- хранение секретов в переменных окружения;
-- HTTPS/WSS на публичном домене через Caddy.
-
----
-
-## Production
-
-Публичная версия работает на VPS и развёрнута через Docker Compose.
-
-Production-схема:
-
-```text
-Internet
-  │
-  └── Caddy
-        ├── HTTPS certificate management
-        ├── reverse proxy for /api/v1
-        ├── reverse proxy for WebSocket
-        └── frontend static files
-              │
-              ├── Go backend container
-              ├── Vue/Nginx frontend container
-              └── PostgreSQL/PostGIS container
-```
-
-Текущий публичный адрес:
-
-```text
-https://travel-collab.ru
-```
-
-В production используются:
-
-- отдельный `.env.production` на сервере;
-- Caddy для HTTPS и reverse proxy;
-- Docker Compose для backend, frontend и базы данных;
-- PostgreSQL/PostGIS volume для хранения данных;
-- ежедневный `pg_dump` backup;
-- `fail2ban` для базовой защиты SSH;
-- GitHub Actions для проверки изменений перед обновлением сервера.
-
----
-
-## Тестирование и CI
-
-В проект добавлена автоматическая проверка через GitHub Actions.
-
-CI выполняет две основные проверки:
-
-1. **Backend Go tests** — запуск `go test ./...`.
-2. **Frontend build** — установка зависимостей через `npm ci` и сборка `npm run build`.
-
-Автоматические тесты backend покрывают критические части приложения:
-
-- расчёт расходов;
-- распределение сумм между участниками;
-- проверку сумм оплат и долей;
-- обработку повторяющихся участников;
-- расчёт взаиморасчётов;
-- production-конфигурацию;
-- CORS/Origin-логику;
-- WebSocket Origin check;
-- rate limiting для авторизации.
-
-Дополнительно проект проверялся вручную через реальные пользовательские сценарии: регистрация, вход, создание поездки, приглашение второго пользователя, карта, маршруты, расходы, балансы и чат между двумя устройствами.
-
----
-
-## Структура репозитория
-
-```text
-travel-collab/
-├── backend/                 # Go backend
-│   ├── cmd/                 # entrypoint
-│   └── internal/            # API, auth, config, middleware, repository, ws
-│
-├── frontend/                # Vue 3 + TypeScript frontend
-│   ├── src/                 # application source code
-│   ├── android/             # Capacitor Android project
-│   └── scripts/             # mobile build scripts
-│
-├── sql/                     # database schema and migrations
-├── docs/                    # security, testing, deploy and CI notes
-├── scripts/                 # development, production and verification scripts
-├── Caddyfile                # reverse proxy configuration
-├── docker-compose.yml       # development infrastructure
-├── docker-compose.prod.yml  # production stack
-└── README.md
-```
-
----
-
-## Текущий статус
-
-Travel-Collab находится в состоянии рабочего публичного demo/MVP:
-
-- web-версия доступна по домену;
-- HTTPS и WSS работают;
-- основной пользовательский сценарий проверен на ПК и телефоне;
-- backend и frontend проходят автоматические проверки;
-- база данных сохраняется в Docker volume;
-- настроен ежедневный backup PostgreSQL;
-- проект можно развивать дальше без изменения базовой архитектуры.
-
----
-
-## Возможные направления развития
-
-- refresh-токены и управление сессиями;
-- журналирование действий пользователей;
-- загрузка фотографий к точкам маршрута;
-- push-уведомления;
-- экспорт маршрута или финансовой сводки в PDF;
-- более гибкая система ролей;
-- история изменений по расходам и точкам;
-- интеграция с внешними сервисами бронирования;
-- production-сборка Android-приложения.
+- refresh token flow;
+- OAuth login;
+- richer notification system;
+- export of trip expenses;
+- improved mobile UI;
+- audit log for important trip actions;
+- extended test coverage for frontend components.
