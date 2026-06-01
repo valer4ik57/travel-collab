@@ -23,7 +23,7 @@ APK → wss://travel-collab.ru/api/v1/ws
 Пример `ANDROID_HOME`:
 
 ```text
-C:\Users\valer\AppData\Local\Android\Sdk
+%LOCALAPPDATA%\Android\Sdk
 ```
 
 Проверка в PowerShell или cmd:
@@ -58,7 +58,7 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up --build 
 Из папки frontend:
 
 ```powershell
-cd C:\Users\valer\GolandProjects\travel-collab\frontend
+cd <project-root>\frontend
 powershell -ExecutionPolicy Bypass -File .\scripts\mobile-build.ps1
 ```
 

@@ -26,7 +26,3 @@
 - [ ] Расходы и балансы работают.
 - [ ] WebSocket работает между двумя устройствами.
 - [ ] Android APK ходит на публичный backend, а не на localhost.
-
-## Что сказать на защите
-
-Публичный запуск сделан через Docker Compose. Внешняя точка входа — Caddy, который проксирует REST API и WebSocket на Go backend и отдает frontend. Backend работает с PostgreSQL/PostGIS во внутренней docker-сети. Для публичного режима добавлены строгий CORS, проверка WebSocket Origin, запрет dev JWT secret и rate limiting на регистрацию и вход.

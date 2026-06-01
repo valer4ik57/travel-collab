@@ -51,7 +51,7 @@ function Ensure-AndroidSdk {
     }
 
     if (-not $env:ANDROID_HOME) {
-        throw "ANDROID_HOME is not set. Expected Android SDK, for example: C:\Users\valer\AppData\Local\Android\Sdk"
+        throw "ANDROID_HOME is not set. Expected Android SDK, for example: %LOCALAPPDATA%\Android\Sdk"
     }
 
     Add-ToPathIfExists (Join-Path $env:ANDROID_HOME "platform-tools")
